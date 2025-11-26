@@ -57,6 +57,7 @@ logs/
 # Reports and artifacts (generated outputs)
 reports/
 football_datasets/
+football-big-data/
 artifacts/
 *.html
 *.pdf

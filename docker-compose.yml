@@ -77,21 +77,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Elasticsearch
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -131,7 +116,6 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_INSTALL_PLUGINS=redis-datasource
     volumes:
       - grafana-data:/var/lib/grafana
       - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
@@ -234,7 +218,6 @@ volumes:
   kafka-data:
   postgres-data:
   timescale-data:
-  redis-data:
   elasticsearch-data:
   grafana-data:
   prometheus-data:

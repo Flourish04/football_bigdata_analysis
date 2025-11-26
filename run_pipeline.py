@@ -42,6 +42,21 @@ def run_bronze_layer():
     return elapsed
 
 
+def run_events_layer():
+    """Step 1b: Process Football Events (Match-level data)"""
+    print_header("⚽ EVENTS LAYER: Match Events Processing")
+    start = time.time()
+    
+    from src.events_layer import EventsLayer
+    events = EventsLayer()
+    events.process_all()
+    events.stop()
+    
+    elapsed = time.time() - start
+    print_success("Events layer completed", elapsed)
+    return elapsed
+
+
 def run_silver_layer():
     """Step 2: Clean & Standardize (Silver)"""
     print_header("🥈 SILVER LAYER: Data Cleaning & Standardization")
@@ -148,6 +163,23 @@ def run_validation():
     return elapsed
 
 
+def load_events_to_postgres():
+    """Step 7: Load Events to PostgreSQL"""
+    print_header("📤 LOAD EVENTS TO POSTGRESQL")
+    start = time.time()
+    
+    import subprocess
+    result = subprocess.run([sys.executable, "schema/load_events_to_postgres.py"])
+    elapsed = time.time() - start
+    
+    if result.returncode == 0:
+        print_success("Events loaded to PostgreSQL", elapsed)
+    else:
+        print_error("Events loading failed", Exception(f"Exit code: {result.returncode}"))
+    
+    return elapsed
+
+
 def main():
     """Run full ETL pipeline"""
     pipeline_start = time.time()
@@ -162,6 +194,9 @@ def main():
     try:
         # Step 1: Bronze Layer
         timings['bronze'] = run_bronze_layer()
+        
+        # Step 1b: Events Layer (NEW)
+        timings['events'] = run_events_layer()
         
         # Step 2: Silver Layer
         timings['silver'] = run_silver_layer()
@@ -178,7 +213,10 @@ def main():
         # Step 6: Create Views and Materialized Views
         timings['create_views'] = create_views()
         
-        # Step 7: Data Validation
+        # Step 7: Load Events to PostgreSQL (NEW)
+        timings['load_events'] = load_events_to_postgres()
+        
+        # Step 8: Data Validation
         timings['validation'] = run_validation()
         
         # Summary
@@ -188,11 +226,13 @@ def main():
         print("  📈 PIPELINE SUMMARY")
         print("=" * 80)
         print(f"  Bronze Layer:       {timings['bronze']:>8.2f}s")
+        print(f"  Events Layer:       {timings['events']:>8.2f}s  ⚽ NEW")
         print(f"  Silver Layer:       {timings['silver']:>8.2f}s")
         print(f"  Gold Layer:         {timings['gold']:>8.2f}s")
         print(f"  Load Silver:        {timings['load_silver']:>8.2f}s")
         print(f"  Load Gold:          {timings['load_gold']:>8.2f}s")
         print(f"  Create Views:       {timings['create_views']:>8.2f}s")
+        print(f"  Load Events:        {timings['load_events']:>8.2f}s  ⚽ NEW")
         print(f"  Validation:         {timings['validation']:>8.2f}s")
         print("  " + "-" * 76)
         print(f"  TOTAL:              {total_elapsed:>8.2f}s")
