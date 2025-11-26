@@ -26,7 +26,11 @@ Default Configuration (from environment or defaults):
 
 import os
 import sys
+import signal
+import logging
+import warnings
 from pathlib import Path
+from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json, to_timestamp, lit, current_timestamp, to_json, coalesce, when
 from pyspark.sql.types import (
@@ -34,9 +38,19 @@ from pyspark.sql.types import (
     IntegerType, MapType, ArrayType
 )
 
+# Suppress all Py4J and PySpark error logging
+logging.getLogger("py4j").setLevel(logging.CRITICAL)
+logging.getLogger("py4j.java_gateway").setLevel(logging.CRITICAL)
+logging.getLogger("py4j.clientserver").setLevel(logging.CRITICAL)
+logging.basicConfig(level=logging.ERROR)
+warnings.filterwarnings("ignore")
+
 # Get project root directory (2 levels up from this file)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 POSTGRESQL_JAR = PROJECT_ROOT / "jars" / "postgresql-42.7.1.jar"
+
+# Load environment variables from .env file
+load_dotenv(PROJECT_ROOT / ".env")
 
 def create_spark_session():
     """
@@ -51,6 +65,9 @@ def create_spark_session():
         print("   Download it from: https://jdbc.postgresql.org/download/")
         sys.exit(1)
     
+    # Disable PySpark's signal handler to avoid noisy Py4J errors on Ctrl+C
+    os.environ["PYSPARK_PIN_THREAD"] = "true"
+    
     builder = SparkSession.builder \
         .appName("football-kafka-postgres-streaming") \
         .master("local[*]") \
@@ -61,7 +78,13 @@ def create_spark_session():
         .config("spark.driver.memory", "2g") \
         .config("spark.executor.memory", "2g")
     
-    return builder.getOrCreate()
+    spark = builder.getOrCreate()
+    
+    # Remove Spark's SIGINT handler to prevent noisy shutdown
+    import signal
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    
+    return spark
 
 def get_match_schema():
     """Define schema for match JSON from Kafka"""
@@ -212,7 +235,7 @@ def write_to_postgres(batch_df, batch_id):
     jdbc_url = f"jdbc:postgresql://{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/{os.environ.get('POSTGRES_DB', 'football_analytics')}"
     connection_properties = {
         "user": os.environ.get('POSTGRES_USER', 'postgres'),
-        "password": os.environ.get('POSTGRES_PASSWORD', '9281746356'),
+        "password": os.environ.get('POSTGRES_PASSWORD', 'your_password'),
         "driver": "org.postgresql.Driver"
     }
     
@@ -239,7 +262,7 @@ def write_to_postgres(batch_df, batch_id):
             port=os.environ.get('POSTGRES_PORT', '5432'),
             database=os.environ.get('POSTGRES_DB', 'football_analytics'),
             user=os.environ.get('POSTGRES_USER', 'postgres'),
-            password=os.environ.get('POSTGRES_PASSWORD', '9281746356')
+            password=os.environ.get('POSTGRES_PASSWORD', 'your_password')
         )
         cursor = conn.cursor()
         
@@ -341,14 +364,14 @@ def main():
     # Load configuration from environment or use defaults
     config = {
         'kafka_bootstrap': os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'pkc-312o0.ap-southeast-1.aws.confluent.cloud:9092'),
-        'kafka_api_key': os.environ.get('KAFKA_API_KEY', 'YXERA5PFM2TMAU6Z'),
-        'kafka_api_secret': os.environ.get('KAFKA_API_SECRET', 'cfltpKodnfC/24wU7Amhzs/9yCcAFprLKnIj93/KgyYb1aV8NzefOCuvvnwXkKgg'),
+        'kafka_api_key': os.environ.get('KAFKA_API_KEY', 'your_kafka_key'),
+        'kafka_api_secret': os.environ.get('KAFKA_API_SECRET', 'your_kafka_secret'),
         'kafka_topic': os.environ.get('KAFKA_TOPIC', 'live-match-events'),
         'postgres_host': os.environ.get('POSTGRES_HOST', 'localhost'),
         'postgres_port': os.environ.get('POSTGRES_PORT', '5432'),
         'postgres_db': os.environ.get('POSTGRES_DB', 'football_analytics'),
         'postgres_user': os.environ.get('POSTGRES_USER', 'postgres'),
-        'postgres_password': os.environ.get('POSTGRES_PASSWORD', '9281746356')
+        'postgres_password': os.environ.get('POSTGRES_PASSWORD', 'your_password')
     }
     
     print(f"📊 Configuration:")
@@ -409,25 +432,76 @@ def main():
         print("✅ Streaming query started!")
         print()
         
-        # Wait for termination
-        query.awaitTermination()
+        # Wait for termination with proper signal handling
+        try:
+            query.awaitTermination()
+        except KeyboardInterrupt:
+            # Suppress all stderr output during Ctrl+C cleanup
+            import contextlib
+            import io
+            
+            # Redirect stderr to suppress Py4J tracebacks
+            with contextlib.redirect_stderr(io.StringIO()):
+                print("\n\n⚠️  Received Ctrl+C, stopping streaming...")
+                try:
+                    query.stop()
+                except Exception:
+                    pass
+            print("✅ Streaming query stopped")
         
     except KeyboardInterrupt:
-        print("\n⚠️  Received Ctrl+C, stopping streaming...")
-        if 'query' in locals():
-            query.stop()
-        print("✅ Streaming stopped gracefully")
+        print("\n\n⚠️  Received Ctrl+C during initialization")
         
     except Exception as e:
-        print(f"\n❌ Error occurred: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        # Ignore Py4J errors during shutdown
+        error_type = type(e).__name__
+        if "Py4J" in error_type or "Network" in error_type:
+            print("\n⚠️  Stream interrupted by user")
+        else:
+            print(f"\n❌ Error occurred: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
     
     finally:
         if 'spark' in locals():
-            spark.stop()
+            # Suppress all stderr during Spark cleanup
+            import contextlib
+            import io
+            
+            with contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    spark.stop()
+                except Exception:
+                    pass
             print("🛑 Spark session stopped")
+        print("\n👋 Pipeline stopped. Goodbye!\n")
 
 if __name__ == '__main__':
-    main()
+    import contextlib
+    import io
+    
+    # Override sys.stderr to suppress Py4J errors
+    class SuppressStderr:
+        def __init__(self):
+            self.original_stderr = sys.stderr
+            self.suppress = False
+            
+        def write(self, text):
+            # Suppress Py4J errors during shutdown
+            if self.suppress and any(x in text for x in ['ERROR:root:', 'Traceback', 'py4j', 'Py4JError', 'RuntimeError']):
+                return
+            self.original_stderr.write(text)
+            
+        def flush(self):
+            self.original_stderr.flush()
+    
+    suppressor = SuppressStderr()
+    sys.stderr = suppressor
+    
+    try:
+        main()
+    except KeyboardInterrupt:
+        suppressor.suppress = True
+        print("\n👋 Stopped by user. Goodbye!\n")
+        sys.exit(0)

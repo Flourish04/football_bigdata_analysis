@@ -7,6 +7,7 @@ Executes analytics_schema.sql to create all views and materialized views
 import psycopg2
 import logging
 import sys
+import os
 from pathlib import Path
 
 # Configure logging
@@ -33,7 +34,7 @@ class ViewCreator:
                 host="localhost",
                 database="football_analytics",
                 user="postgres",
-                password="9281746356"
+                password=os.getenv('POSTGRES_PASSWORD', 'your_password')
             )
             self.cursor = self.conn.cursor()
             logger.info("✅ Connected to PostgreSQL database")

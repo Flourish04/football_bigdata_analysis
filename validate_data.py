@@ -8,6 +8,7 @@ import psycopg2
 from pyspark.sql import SparkSession
 from datetime import datetime
 import sys
+import os
 
 # PostgreSQL connection
 POSTGRES_CONFIG = {
@@ -15,7 +16,7 @@ POSTGRES_CONFIG = {
     'port': 5432,
     'database': 'football_analytics',
     'user': 'postgres',
-    'password': '9281746356'
+    'password': os.getenv('POSTGRES_PASSWORD', 'your_password')
 }
 
 # Parquet paths

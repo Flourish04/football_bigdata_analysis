@@ -2,6 +2,9 @@
 # .gitignore for Football Analytics Project
 # ==============================================================================
 
+# Environment variables (contains credentials)
+.env
+
 # Dataset folders (CSV data - too large for Git)
 football-datasets/
 datalake/

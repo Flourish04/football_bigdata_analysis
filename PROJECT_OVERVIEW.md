@@ -101,7 +101,7 @@ python src/test_full_pipeline.py
 
 ### **2. Query PostgreSQL**
 ```bash
-PGPASSWORD=9281746356 psql -h localhost -U postgres -d football_analytics
+PGPASSWORD=your_password psql -h localhost -U postgres -d football_analytics
 
 -- Top 10 players
 SELECT player_name, overall_player_score, peak_market_value
@@ -146,7 +146,7 @@ conn = psycopg2.connect(
     port=5432,
     database='football_analytics',
     user='postgres',
-    password='9281746356'
+    password='your_password'
 )
 
 cursor = conn.cursor()
@@ -170,7 +170,7 @@ df = spark.read \
     .option('url', 'jdbc:postgresql://localhost:5432/football_analytics') \
     .option('dbtable', 'analytics.player_analytics_360') \
     .option('user', 'postgres') \
-    .option('password', '9281746356') \
+    .option('password', 'your_password') \
     .option('driver', 'org.postgresql.Driver') \
     .load()
 
@@ -573,7 +573,7 @@ bronze.process_all_datasets()
 
 ### **Rebuild Indexes**
 ```bash
-PGPASSWORD=9281746356 psql -h localhost -U postgres -d football_analytics \
+PGPASSWORD=your_password psql -h localhost -U postgres -d football_analytics \
   -f schema/create_silver_indexes.sql
 ```
 
@@ -653,7 +653,7 @@ ORDER BY peak_market_value DESC;
 - **Data Location:** `/tmp/football_datalake/`
 - **Database:** `localhost:5432/football_analytics`
 - **User:** `postgres`
-- **Password:** `9281746356`
+- **Password:** Use `.env` file (see `.env.example`)
 - **Schema Docs:** `schema/README.md`
 - **Data Quality:** `DATA_QUALITY.md`
 

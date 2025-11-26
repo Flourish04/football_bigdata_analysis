@@ -37,9 +37,10 @@ class SilverToPostgresLoader:
                  postgres_port=5432,
                  postgres_db='football_analytics',
                  postgres_user='postgres',
-                 postgres_password='9281746356',
+                 postgres_password=None,
                  silver_path='/tmp/football_datalake/silver'):
         
+        postgres_password = postgres_password or os.getenv('POSTGRES_PASSWORD', 'your_password')
         self.postgres_url = f'jdbc:postgresql://{postgres_host}:{postgres_port}/{postgres_db}'
         self.properties = {
             'user': postgres_user,
@@ -90,7 +91,7 @@ class SilverToPostgresLoader:
                 port=5432,
                 database='football_analytics',
                 user='postgres',
-                password='9281746356'
+                password=os.getenv('POSTGRES_PASSWORD', 'your_password')
             )
             cur = conn.cursor()
             
