@@ -12,6 +12,7 @@ A **production-ready Big Data analytics platform** for football data with **batc
 ## 📌 Table of Contents
 
 - [✨ Key Features](#-key-features)
+- [📦 Dataset](#-dataset)
 - [🏗️ Architecture](#️-architecture)
 - [🚀 Quick Start](#-quick-start)
 - [📊 Data Overview](#-data-overview)
@@ -57,6 +58,17 @@ A **production-ready Big Data analytics platform** for football data with **batc
 - ✅ **No Hardcoded Secrets**: 100% secure configuration
 - ✅ **Template File**: `.env.sample` for easy setup
 - ✅ **Production Ready**: Tested with real data
+
+---
+
+## 📦 Dataset
+
+🔗 **Download Dataset**: [Google Drive - Football Analytics Dataset](https://drive.google.com/drive/folders/1ha8wBkS4s1vzXKt94CD_roIAgKE3A3yG?usp=sharing)
+
+- **11 CSV files** from Transfermarkt
+- **5.6M+ records** of football data
+- **Player profiles, performances, transfers, injuries, market values**
+- Place downloaded files in `football-datasets/datalake/transfermarkt/` directory
 
 ---
 
