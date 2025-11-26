@@ -1,0 +1,86 @@
+# ==============================================================================
+# .gitignore for Football Analytics Project
+# ==============================================================================
+
+# Dataset folders (CSV data - too large for Git)
+football-datasets/
+datalake/
+
+# Parquet data lake (generated files)
+/tmp/football_datalake/
+*.parquet
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Reports and artifacts (generated outputs)
+reports/
+football_datasets/
+artifacts/
+*.html
+*.pdf
+
+# Database dumps
+*.sql.gz
+*.dump
+*.backup
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Spark
+metastore_db/
+spark-warehouse/
+derby.log
+
+# PostgreSQL
+*.pgsql
+
+# Temporary files
+temp/
+tmp/
+*.temp
+*.bak
