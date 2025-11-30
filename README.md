@@ -268,9 +268,6 @@ FOOTBALL_API_TOKEN=your_football_api_token
 ```bash
 # Install Python packages
 pip install -r requirements.txt
-
-# For streaming (optional)
-pip install -r requirements-streaming.txt
 ```
 
 ### **3. Run Batch Pipeline**
@@ -536,8 +533,7 @@ football_project/
 
 ### **📖 Getting Started**
 - [README.md](README.md) - **This file** (overview + quick start)
-- [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) - **Complete system documentation** (667 lines)
-- [BAO_CAO_TONG_QUAN.md](BAO_CAO_TONG_QUAN.md) - **Báo cáo dự án tiếng Việt** (Vietnamese report)
+
 
 ### **📊 Database & Architecture Diagrams**
 - [diagrams/DATABASE_SCHEMA.md](diagrams/DATABASE_SCHEMA.md) - **Complete ERD diagrams** (Silver, Gold, Streaming schemas)
@@ -545,10 +541,6 @@ football_project/
 
 ### **🔴 Streaming Setup**
 - [STREAMING_ARCHITECTURE.md](STREAMING_ARCHITECTURE.md) - Architecture overview (428 lines)
-- [CONFLUENT_CLOUD_SETUP.md](CONFLUENT_CLOUD_SETUP.md) - Kafka configuration
-
-### **✅ Data Quality**
-- [DATA_QUALITY.md](DATA_QUALITY.md) - Quality rules and validation
 
 ---
 
