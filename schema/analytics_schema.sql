@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS analytics.market_value_trends (
     
     -- Market Value Statistics
     peak_market_value BIGINT NOT NULL DEFAULT 0,
+    latest_market_value BIGINT DEFAULT 0,
     lowest_market_value BIGINT NOT NULL DEFAULT 0,
     avg_market_value BIGINT DEFAULT 0,
     value_volatility BIGINT NOT NULL DEFAULT 0,
@@ -89,6 +90,7 @@ CREATE TABLE IF NOT EXISTS analytics.market_value_trends (
     
     -- Constraints
     CONSTRAINT chk_peak_value_positive CHECK (peak_market_value >= 0),
+    CONSTRAINT chk_latest_value_positive CHECK (latest_market_value >= 0),
     CONSTRAINT chk_lowest_value_positive CHECK (lowest_market_value >= 0),
     CONSTRAINT chk_peak_gte_lowest CHECK (peak_market_value >= lowest_market_value),
     CONSTRAINT chk_value_records_positive CHECK (value_records_count >= 0)
@@ -226,6 +228,7 @@ CREATE TABLE IF NOT EXISTS analytics.player_analytics_360 (
     
     -- Market Value Metrics (from market_trends)
     peak_market_value BIGINT DEFAULT 0,
+    latest_market_value BIGINT DEFAULT 0,
     avg_market_value BIGINT DEFAULT 0,
     value_volatility BIGINT DEFAULT 0,
     latest_valuation_timestamp DATE,

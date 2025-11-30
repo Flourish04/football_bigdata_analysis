@@ -6,28 +6,35 @@
 Football-Data.org API
         ↓
 Apache NiFi (Visual Producer)
-- InvokeHTTP
+- InvokeHTTP (every 10s for matches, 60s for competitions)
 - EvaluateJsonPath
 - RouteOnAttribute
 - PublishKafka
         ↓
-Confluent Cloud Kafka
-(Managed Service)
+Confluent Cloud Kafka (3 topics)
+- live-match-events
+- football-competitions  
+- football-leaderboards
         ↓
-Spark Structured Streaming (Consumer)
+Spark Structured Streaming (2 consumers)
+├── spark_streaming_upsert.py (15s trigger)
+│   └── Topic: live-match-events
+└── spark_streaming_competitions.py (60s trigger)
+    ├── Topic: football-competitions
+    └── Topic: football-leaderboards
         ↓
 ┌───────────────────────────┐
 │  Real-time Processing     │
-│  - Match events           │
-│  - Live scores            │
-│  - Player statistics      │
-│  - Team performance       │
+│  - Match events (UPSERT)  │
+│  - Competitions (UPSERT)  │
+│  - Leaderboards (UPSERT)  │
+│  - JSONB storage          │
 └───────────────────────────┘
         ↓
-    ┌───────┴───────┐
-    ↓               ↓
-PostgreSQL      Parquet
-(Hot data)      (Cold storage)
+PostgreSQL (streaming schema)
+- football_matches (58 records)
+- competitions (13 records)
+- leaderboards (271 records)
     ↓
 Dashboard/Analytics
 ```
@@ -371,6 +378,50 @@ spark.conf.set("spark.sql.streaming.metricsEnabled", True)
 - RDS PostgreSQL: $200/month
 - **Total**: ~$1,030-1,100/month
 
+## ⚙️ Checkpoint Configuration
+
+### **Global Checkpoint Strategy**
+
+Both streaming jobs use **global checkpoint configuration** to ensure consistent behavior:
+
+```python
+# Set global checkpoint location in SparkSession
+spark = SparkSession.builder \
+    .config("spark.sql.streaming.checkpointLocation", "/tmp/spark-checkpoints/base-dir") \
+    .getOrCreate()
+
+# Each query auto-creates subdirectory with UUID
+# /tmp/spark-checkpoints/base-dir/
+# ├── a6bd422f-uuid1/offsets/0-3  (run 1)
+# ├── fb10c43d-uuid2/offsets/0-3  (run 2)
+# └── 2b8dcbe0-uuid3/offsets/0-23 (run 3, current)
+```
+
+**Benefits:**
+- ✅ **Run ID Auto-generation**: Each restart creates new UUID directory
+- ✅ **Batch ID Reset**: Starts from 0 for each run (easier debugging)
+- ✅ **Kafka Offset Tracking**: Continues from last committed offset
+- ✅ **Consistent Pattern**: All streaming jobs use same approach
+
+### **Checkpoint Locations**
+
+| Job | Checkpoint Base | Run IDs |
+|-----|----------------|---------|
+| Match Events | `/tmp/spark-checkpoints/football` | Auto-generated UUIDs |
+| Competitions | `/tmp/spark-checkpoints/football-competitions-leaderboards` | Auto-generated UUIDs |
+
+### **Trigger Intervals**
+
+| Job | NiFi Polling | Spark Trigger | Rationale |
+|-----|--------------|---------------|-----------|
+| Match Events | 10s | 15s | Allows 1-2 batches per trigger (no backpressure) |
+| Competitions | 60s | 60s | Aligned with NiFi frequency (low volume data) |
+
+**Why 15s for match events?**
+- NiFi pushes every 10s → Kafka buffer accumulates messages
+- Spark processes every 15s → Can handle 1-2 NiFi cycles per batch
+- Prevents backpressure (Spark can't keep up scenario)
+
 ## 🔗 Integration with Existing Pipeline
 
 ```python
@@ -385,7 +436,8 @@ spark.conf.set("spark.sql.streaming.metricsEnabled", True)
 ┌─────────────────────────────┐
 │   Speed Layer (NEW)         │
 │   - Real-time data          │
-│   - Live aggregations       │
+│   - Match events (15s)      │
+│   - Competitions (60s)      │
 │   - Kafka → Spark Stream    │
 └─────────────────────────────┘
             ↓
@@ -397,15 +449,81 @@ spark.conf.set("spark.sql.streaming.metricsEnabled", True)
 └─────────────────────────────┘
 ```
 
+## � Troubleshooting
+
+### **Issue 1: Batch ID starts at 7-8 instead of 0**
+
+**Cause:** Using per-query checkpoint instead of global checkpoint
+```python
+# BAD: Per-query checkpoint (accumulates batches across restarts)
+query.writeStream \
+    .option("checkpointLocation", "/path/to/checkpoint") \
+    .start()
+```
+
+**Solution:** Use global checkpoint config
+```python
+# GOOD: Global checkpoint (auto-generates run IDs)
+spark = SparkSession.builder \
+    .config("spark.sql.streaming.checkpointLocation", "/base/dir") \
+    .getOrCreate()
+```
+
+### **Issue 2: Data appears immediately on first run**
+
+**Cause:** Kafka retention keeps messages for 7 days
+- `startingOffsets="latest"` means "read to latest offset"
+- First run with no checkpoint reads ALL messages from offset 0
+- Subsequent runs use checkpoint offset
+
+**Expected Behavior:**
+- Run 1: Processes all messages in Kafka (batch 0 to N)
+- Run 2+: Only new messages since last checkpoint
+
+### **Issue 3: Print statements not showing**
+
+**Cause:** Python output buffering with pipe
+
+**Solution:** Add `flush=True` or run with `PYTHONUNBUFFERED=1`
+```python
+# Add flush=True to print statements
+print(f"Processing batch {batch_id}...", flush=True)
+
+# Or run with unbuffered output
+PYTHONUNBUFFERED=1 python src/streaming/spark_streaming_upsert.py
+```
+
+### **Issue 4: Schema mismatch error**
+
+**Cause:** Expected array but API sends single object
+
+**Solution:** Check JSON structure first
+```python
+# Competition API sends single object (not array)
+{
+  "id": 2000,
+  "name": "Serie A",
+  "code": "SA",
+  ...
+}
+
+# Schema should NOT use ArrayType
+StructType([
+    StructField("id", IntegerType(), False),
+    StructField("name", StringType(), False),
+    ...
+])
+```
+
 ## 📚 Next Steps
 
-1. **Choose API provider** → Recommend API-Football
-2. **Setup Kafka** → Docker Compose
-3. **Implement producer** → Python + Kafka-Python
-4. **Build Spark consumer** → Structured Streaming
-5. **Create dashboard** → Streamlit
-6. **Test with sample data** → Mock API responses
-7. **Deploy to production** → AWS/Azure
+1. ✅ **Setup Kafka** → Confluent Cloud (managed)
+2. ✅ **Implement producer** → Apache NiFi (visual flows)
+3. ✅ **Build Spark consumer** → 2 streaming jobs (matches, competitions)
+4. ✅ **Schema validation** → Test scripts created
+5. ⏳ **Create dashboard** → Apache Superset integration
+6. ⏳ **Monitor performance** → Checkpoint tracking, batch metrics
+7. ⏳ **Deploy to production** → AWS/Azure/Local
 
 ## 🔧 Development Environment
 

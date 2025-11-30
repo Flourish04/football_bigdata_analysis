@@ -25,6 +25,8 @@ SELECT
     health_score,
     player_rank,
     peak_market_value,
+    latest_market_value,
+    latest_valuation_timestamp,
     total_goals,
     total_assists,
     injury_risk_level
@@ -33,7 +35,7 @@ WHERE overall_player_score > 0
 ORDER BY overall_player_score DESC
 LIMIT 100;
 
-COMMENT ON VIEW analytics.vw_top_players IS 'Top 100 players ranked by overall player score';
+COMMENT ON VIEW analytics.vw_top_players IS 'Top 100 players ranked by overall player score. Market values in EUR (raw values, e.g., 100000000 = €100M)';
 
 
 -- High-value players with low injury risk
@@ -44,6 +46,8 @@ SELECT
     age,
     player_main_position,
     peak_market_value,
+    latest_market_value,
+    latest_valuation_timestamp,
     avg_market_value,
     injury_risk_level,
     total_injuries,
@@ -57,7 +61,7 @@ WHERE
     AND age BETWEEN 20 AND 30
 ORDER BY peak_market_value DESC;
 
-COMMENT ON VIEW analytics.vw_high_value_low_risk_players IS 'High-value players (>10M EUR) with low injury risk, aged 20-30';
+COMMENT ON VIEW analytics.vw_high_value_low_risk_players IS 'High-value players (>10M EUR) with low injury risk, aged 20-30. Market values in EUR (raw values, e.g., 100000000 = €100M)';
 
 
 -- Transfer market opportunities
@@ -67,14 +71,33 @@ SELECT
     pa.player_name,
     pa.age,
     pa.player_main_position,
-    pa.peak_market_value,
+    pa.peak_market_value,  -- EUR (raw value, no division)
+    pa.latest_market_value,  -- EUR (raw value, no division)
+    pa.latest_valuation_timestamp,
+    pa.avg_market_value,  -- EUR (raw value, no division)
+    (pa.latest_market_value - pa.avg_market_value) as value_growth,  -- EUR (raw value)
     pa.total_goals,
     pa.goals_per_90min,
     ti.total_transfers,
     ti.avg_transfer_fee,
     ti.transfer_value_trend,
     pa.injury_risk_level,
-    pa.overall_player_score
+    pa.overall_player_score,
+    -- Calculate opportunity score (0-100)
+    CASE 
+        WHEN pa.latest_market_value > 0 THEN
+            LEAST(100, GREATEST(0,
+                (pa.overall_player_score * 0.4) +
+                (CASE WHEN ti.transfer_value_trend = 'PROFIT' THEN 20 ELSE 0 END) +
+                (CASE WHEN pa.injury_risk_level = 'LOW' THEN 20 
+                      WHEN pa.injury_risk_level = 'MEDIUM' THEN 10 
+                      ELSE 0 END) +
+                (CASE WHEN pa.age BETWEEN 22 AND 26 THEN 20 
+                      WHEN pa.age BETWEEN 20 AND 28 THEN 15 
+                      ELSE 5 END)
+            ))
+        ELSE 0
+    END as opportunity_score
 FROM analytics.player_analytics_360 pa
 JOIN analytics.transfer_intelligence ti ON pa.player_id = ti.player_id
 WHERE 
@@ -82,9 +105,10 @@ WHERE
     AND pa.injury_risk_level IN ('LOW', 'MEDIUM')
     AND ti.transfer_value_trend = 'PROFIT'
     AND pa.overall_player_score > 50
-ORDER BY pa.overall_player_score DESC;
+    AND pa.latest_market_value > 0
+ORDER BY opportunity_score DESC, pa.overall_player_score DESC;
 
-COMMENT ON VIEW analytics.vw_transfer_opportunities IS 'Players with strong performance, positive transfer trends, and manageable injury risk';
+COMMENT ON VIEW analytics.vw_transfer_opportunities IS 'Players with strong performance, positive transfer trends, and manageable injury risk. Includes opportunity_score (0-100) based on performance, age, risk, and transfer trend. Market values in EUR (raw values, e.g., 100000000 = €100M)';
 
 
 -- ==============================================================================
@@ -98,10 +122,13 @@ SELECT
     player_main_position,
     COUNT(*) as total_players,
     AVG(overall_player_score) as avg_overall_score,
-    AVG(peak_market_value) as avg_peak_value,
+    AVG(peak_market_value) as avg_peak_market_value,
+    AVG(latest_market_value) as avg_latest_market_value,
+    AVG(avg_market_value) as avg_market_value,
     AVG(total_goals) as avg_goals,
     AVG(total_assists) as avg_assists,
-    AVG(goals_per_90min) as avg_goals_per_90,
+    AVG(goals_per_90min) as avg_goals_per_90min,
+    AVG(assists_per_90min) as avg_assists_per_90min,
     AVG(age) as avg_age,
     SUM(CASE WHEN injury_risk_level = 'HIGH' THEN 1 ELSE 0 END) as high_risk_count,
     SUM(CASE WHEN injury_risk_level = 'MEDIUM' THEN 1 ELSE 0 END) as medium_risk_count,
@@ -112,7 +139,7 @@ GROUP BY player_main_position;
 
 CREATE UNIQUE INDEX idx_mvw_position ON analytics.mvw_position_statistics(player_main_position);
 
-COMMENT ON MATERIALIZED VIEW analytics.mvw_position_statistics IS 'Aggregated statistics by player position - refresh periodically';
+COMMENT ON MATERIALIZED VIEW analytics.mvw_position_statistics IS 'Aggregated statistics by player position - refresh periodically. Market values in EUR (raw values, e.g., 100000000 = €100M)';
 
 
 -- Age group analysis
@@ -129,8 +156,11 @@ SELECT
     END as age_group,
     COUNT(*) as total_players,
     AVG(overall_player_score) as avg_overall_score,
-    AVG(peak_market_value) as avg_peak_value,
+    AVG(peak_market_value) as avg_peak_market_value,
+    AVG(latest_market_value) as avg_latest_market_value,
+    AVG(avg_market_value) as avg_market_value,
     AVG(total_goals) as avg_goals,
+    AVG(total_assists) as avg_assists,
     AVG(injury_severity_score) as avg_injury_score,
     AVG(total_transfers) as avg_transfers
 FROM analytics.player_analytics_360

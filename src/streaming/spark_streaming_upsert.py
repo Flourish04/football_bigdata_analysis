@@ -32,7 +32,7 @@ import warnings
 from pathlib import Path
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, to_timestamp, lit, current_timestamp, to_json, coalesce, when
+from pyspark.sql.functions import col, from_json, to_timestamp, lit, current_timestamp, to_json, coalesce, when, from_utc_timestamp
 from pyspark.sql.types import (
     StructType, StructField, StringType, LongType, 
     IntegerType, MapType, ArrayType
@@ -135,8 +135,15 @@ def normalize_to_silver(bronze_df):
     silver_df = bronze_df.select(
         # === PRIMARY IDENTIFIERS ===
         col("id").alias("match_id"),
-        to_timestamp(col("utcDate"), "yyyy-MM-dd'T'HH:mm:ss'Z'").alias("utc_date"),
-        to_timestamp(col("lastUpdated"), "yyyy-MM-dd'T'HH:mm:ss'Z'").alias("last_updated"),
+        # Convert UTC to UTC+7 (Vietnam timezone)
+        from_utc_timestamp(
+            to_timestamp(col("utcDate"), "yyyy-MM-dd'T'HH:mm:ss'Z'"), 
+            "Asia/Ho_Chi_Minh"
+        ).alias("utc_date"),
+        from_utc_timestamp(
+            to_timestamp(col("lastUpdated"), "yyyy-MM-dd'T'HH:mm:ss'Z'"),
+            "Asia/Ho_Chi_Minh"
+        ).alias("last_updated"),
         
         # === MATCH METADATA ===
         col("status"),
@@ -241,7 +248,7 @@ def write_to_postgres(batch_df, batch_id):
     
     # SILVER → POSTGRES: Write to staging table
     print(f"💾 Batch {batch_id}: Writing Silver data to Postgres staging...")
-    staging_table = "public.football_matches_staging"
+    staging_table = "streaming.football_matches_staging"
     silver_df.write \
         .format("jdbc") \
         .option("url", jdbc_url) \
@@ -267,7 +274,7 @@ def write_to_postgres(batch_df, batch_id):
         cursor = conn.cursor()
         
         upsert_sql = """
-        INSERT INTO public.football_matches 
+        INSERT INTO streaming.football_matches 
             (match_id, utc_date, last_updated, status, matchday, stage,
              area_id, area_name, area_code,
              competition_id, competition_name, competition_code,
@@ -289,7 +296,7 @@ def write_to_postgres(batch_df, batch_id):
             area_details::jsonb, competition_details::jsonb, season_details::jsonb,
             home_team_details::jsonb, away_team_details::jsonb, score_details::jsonb, referees::jsonb,
             raw::jsonb, processing_ts
-        FROM public.football_matches_staging
+        FROM streaming.football_matches_staging
         ON CONFLICT (match_id) DO UPDATE SET
             utc_date = EXCLUDED.utc_date,
             last_updated = EXCLUDED.last_updated,
@@ -336,7 +343,7 @@ def write_to_postgres(batch_df, batch_id):
         conn.commit()
         
         # Clear staging table
-        cursor.execute("TRUNCATE TABLE public.football_matches_staging;")
+        cursor.execute("TRUNCATE TABLE streaming.football_matches_staging;")
         conn.commit()
         
         cursor.close()
@@ -418,14 +425,15 @@ def main():
             .select("data.*", "raw_json")
         
         print("📊 Starting streaming query...")
-        print("   Trigger: 30 seconds microbatch")
+        print("   Trigger: 15 seconds microbatch (aligned with NiFi 10s interval)")
         print("   Press Ctrl+C to stop")
         print()
         
         # Write stream with foreachBatch
+        # NiFi pushes every 10s, Spark processes every 15s (allows 1-2 batches per trigger)
         query = parsed_df.writeStream \
             .foreachBatch(write_to_postgres) \
-            .trigger(processingTime='30 seconds') \
+            .trigger(processingTime='15 seconds') \
             .outputMode("append") \
             .start()
         

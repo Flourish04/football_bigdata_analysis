@@ -134,6 +134,15 @@ class GoldLayer:
                        .when(col('value_change') < 0, 'DECREASING')
                        .otherwise('STABLE'))
         
+        # Get latest market value for each player
+        window_latest = Window.partitionBy('player_id').orderBy(col('date_unix').desc())
+        latest_values = trends \
+            .withColumn('rank', row_number().over(window_latest)) \
+            .filter(col('rank') == 1) \
+            .select('player_id', 
+                   col('value').alias('latest_market_value'),
+                   col('date_unix').alias('latest_valuation_timestamp'))
+        
         # Aggregate by player for summary stats
         player_market_summary = trends \
             .groupBy('player_id') \
@@ -141,12 +150,13 @@ class GoldLayer:
                 spark_max('value').alias('peak_market_value'),
                 spark_min('value').alias('lowest_market_value'),
                 avg('value').alias('avg_market_value'),
-                count('*').alias('value_records_count'),
-                spark_max('date_unix').alias('latest_valuation_timestamp')  # Changed from 'date'
+                count('*').alias('value_records_count')
             ) \
+            .join(latest_values, 'player_id', 'left') \
             .withColumn('value_volatility', 
                        col('peak_market_value') - col('lowest_market_value')) \
             .withColumn('peak_market_value', col('peak_market_value').cast('long')) \
+            .withColumn('latest_market_value', col('latest_market_value').cast('long')) \
             .withColumn('lowest_market_value', col('lowest_market_value').cast('long')) \
             .withColumn('avg_market_value', col('avg_market_value').cast('long')) \
             .withColumn('value_volatility', col('value_volatility').cast('long')) \
@@ -314,6 +324,7 @@ class GoldLayer:
             spark_round(col('avg_assists_per_season'), 2).alias('avg_assists_per_season'),
             # Market Value - No decimals for money
             col('peak_market_value').cast('long').alias('peak_market_value'),
+            col('latest_market_value').cast('long').alias('latest_market_value'),
             col('avg_market_value').cast('long').alias('avg_market_value'),
             col('value_volatility').cast('long').alias('value_volatility'),
             'latest_valuation_timestamp',  # Changed from 'latest_valuation_date'

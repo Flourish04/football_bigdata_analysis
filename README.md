@@ -46,12 +46,77 @@ A **production-ready Big Data analytics platform** for football data with **batc
 - ✅ **UPSERT Logic**: Incremental updates to PostgreSQL
 - ✅ **HYBRID Schema**: JSONB for flexible event storage
 
+#### **Apache NiFi Data Flows**
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="nifi/live-matches.png" width="350px" alt="Live Matches Flow"/><br />
+      <b>Live Matches Flow</b><br />
+      Fetch match events every 10s → Kafka
+    </td>
+    <td align="center">
+      <img src="nifi/live-competitions.png" width="350px" alt="Live Competitions Flow"/><br />
+      <b>Live Competitions Flow</b><br />
+      Fetch competitions every 60s → Kafka
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="nifi/live-leaderboards.png" width="350px" alt="Live Leaderboards Flow"/><br />
+      <b>Live Leaderboards Flow</b><br />
+      Fetch leaderboards every 60s → Kafka
+    </td>
+    <td align="center">
+      <img src="nifi/competitions-to-leaderboards.png" width="350px" alt="Competitions to Leaderboards"/><br />
+      <b>Competitions → Leaderboards</b><br />
+      Parse competition IDs for leaderboard fetching
+    </td>
+  </tr>
+</table>
+
 ### **📊 Analytics & Visualization**
 - ✅ **5 Gold Analytics Tables**: 403K records with comprehensive metrics
 - ✅ **Player 360° Profiles**: Overall scores, form metrics, market trends
 - ✅ **Injury Risk Analysis**: Health scores and availability predictions
 - ✅ **Transfer Intelligence**: Market value trends and opportunities
 - ✅ **Apache Superset Dashboards**: Interactive visualizations
+
+#### **Dashboard Screenshots**
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="dashboards/Player-Scouting.jpg" width="400px" alt="Player Scouting Dashboard"/><br />
+      <b>Player Scouting</b><br />
+      Top performers analysis by position and metrics
+    </td>
+    <td align="center">
+      <img src="dashboards/Performance-Analytics.jpg" width="400px" alt="Performance Analytics Dashboard"/><br />
+      <b>Performance Analytics</b><br />
+      Player form metrics and statistical trends
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="dashboards/Transfer-Market-Intelligence.jpg" width="400px" alt="Transfer Market Dashboard"/><br />
+      <b>Transfer Market Intelligence</b><br />
+      Market value trends and transfer opportunities
+    </td>
+    <td align="center">
+      <img src="dashboards/Injury-Risk-Management.jpg" width="400px" alt="Injury Risk Dashboard"/><br />
+      <b>Injury Risk Management</b><br />
+      Health scores and injury history analysis
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2">
+      <img src="dashboards/Football-Leaderboards.jpg" width="400px" alt="Football Leaderboards Dashboard"/><br />
+      <b>Football Leaderboards</b><br />
+      Competition standings and team rankings
+    </td>
+  </tr>
+</table>
 
 ### **🔒 Security & Best Practices**
 - ✅ **Environment Variables**: All credentials in `.env` (gitignored)
@@ -116,8 +181,40 @@ graph TB
 ├─────────────────────────────────────────────────────────────────┤
 │  API → NiFi → Kafka → Spark Streaming → PostgreSQL → Superset   │
 │                                                                  │
-│  Latency: 30s microbatch | Format: JSONB | Auth: SASL/SSL      │
+│  Latency: 15-60s microbatch | Format: JSONB | Auth: SASL/SSL   │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### **Streaming Data Flow Details**
+
+**1. Match Events Streaming** (Real-time match updates)
+```
+Football-Data.org API
+    ↓ (Every 10 seconds)
+Apache NiFi InvokeHTTP Processor
+    ↓ (Parse JSON, Route by status)
+Kafka Topic: live-match-events
+    ↓ (Consume with 15s trigger)
+Spark Structured Streaming
+    ↓ (UPSERT logic with JSONB)
+PostgreSQL: streaming.football_matches
+    ↓ (Query via views)
+Apache Superset Dashboards
+```
+
+**2. Competitions & Leaderboards Streaming** (Tournament standings)
+```
+Football-Data.org API
+    ↓ (Every 60 seconds)
+Apache NiFi InvokeHTTP Processor
+    ↓ (Parse competitions, extract IDs)
+Kafka Topics: football-competitions, football-leaderboards
+    ↓ (Consume with 60s trigger)
+Spark Structured Streaming
+    ↓ (UPSERT logic with separate tables)
+PostgreSQL: streaming.competitions, streaming.leaderboards
+    ↓ (Join with matches for complete view)
+Apache Superset Dashboards
 ```
 
 ---
@@ -159,6 +256,8 @@ KAFKA_BOOTSTRAP_SERVERS=pkc-xxx.aws.confluent.cloud:9092
 KAFKA_API_KEY=your_kafka_api_key
 KAFKA_API_SECRET=your_kafka_api_secret
 KAFKA_TOPIC=live-match-events
+KAFKA_TOPIC_COMPETITIONS=football-competitions
+KAFKA_TOPIC_LEADERBOARDS=football-leaderboards
 
 # Football API (for streaming)
 FOOTBALL_API_TOKEN=your_football_api_token
@@ -215,12 +314,28 @@ python run_pipeline.py
 
 ### **4. Run Streaming Pipeline (Optional)**
 
+#### **Match Events Streaming** (NiFi pushes every 10s, Spark processes every 15s)
 ```bash
-# Start streaming consumer
+# Start match events streaming consumer
 python src/streaming/spark_streaming_upsert.py
 
 # Press Ctrl+C to stop gracefully
 ```
+
+#### **Competitions & Leaderboards Streaming** (NiFi pushes every 60s, Spark processes every 60s)
+```bash
+# Start competitions streaming consumer
+python src/streaming/spark_streaming_competitions.py
+
+# Press Ctrl+C to stop gracefully
+```
+
+**Streaming Features:**
+- ✅ **Global Checkpoint Config**: Auto-generates run IDs (UUIDs) per restart → Batch ID resets to 0
+- ✅ **Trigger Intervals**: Matches (15s), Competitions (60s) aligned with NiFi frequencies
+- ✅ **JSONB Storage**: Flexible schema for live match events, competitions, leaderboards
+- ✅ **UPSERT Logic**: Incremental updates to PostgreSQL (no duplicates)
+- ✅ **Backpressure Handling**: `maxOffsetsPerTrigger` prevents Spark overload
 
 **See [STREAMING_ARCHITECTURE.md](STREAMING_ARCHITECTURE.md) for complete streaming setup.**
 
@@ -391,7 +506,8 @@ football_project/
 │   ├── gold_layer.py              # 🥇 Analytics aggregation
 │   ├── data_quality_check.py      # ✅ Quality checks
 │   └── streaming/                 # 🔴 Streaming pipeline
-│       └── spark_streaming_upsert.py
+│       ├── spark_streaming_upsert.py         # Match events (15s trigger)
+│       └── spark_streaming_competitions.py   # Competitions/Leaderboards (60s trigger)
 │
 ├── schema/                         # 🗄️ Database schemas
 │   ├── analytics_schema.sql       # Gold layer DDL
@@ -421,6 +537,11 @@ football_project/
 ### **📖 Getting Started**
 - [README.md](README.md) - **This file** (overview + quick start)
 - [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) - **Complete system documentation** (667 lines)
+- [BAO_CAO_TONG_QUAN.md](BAO_CAO_TONG_QUAN.md) - **Báo cáo dự án tiếng Việt** (Vietnamese report)
+
+### **📊 Database & Architecture Diagrams**
+- [diagrams/DATABASE_SCHEMA.md](diagrams/DATABASE_SCHEMA.md) - **Complete ERD diagrams** (Silver, Gold, Streaming schemas)
+- [diagrams/SYSTEM_ARCHITECTURE.md](diagrams/SYSTEM_ARCHITECTURE.md) - **System architecture diagrams** (Lambda, Medallion, ETL flows)
 
 ### **🔴 Streaming Setup**
 - [STREAMING_ARCHITECTURE.md](STREAMING_ARCHITECTURE.md) - Architecture overview (428 lines)
@@ -533,6 +654,56 @@ kafka_config = {
 - Monitor live matches as they happen
 - Track real-time statistics and events
 - Build interactive dashboards with Apache Superset
+
+---
+
+## 📸 Screenshots & Visualizations
+
+### **Apache Superset Dashboards**
+
+Our platform includes 5 comprehensive dashboards built with Apache Superset for data visualization and analysis:
+
+#### **1. Player Scouting Dashboard**
+![Player Scouting](dashboards/Player-Scouting.jpg)
+*Identify top performers with detailed metrics across positions, leagues, and age groups. Features interactive filters for market value, overall score, and performance indicators.*
+
+#### **2. Performance Analytics Dashboard**
+![Performance Analytics](dashboards/Performance-Analytics.jpg)
+*Track player form metrics, goals/assists trends, and statistical comparisons. Includes per-90 minute rates and consistency scores.*
+
+#### **3. Transfer Market Intelligence Dashboard**
+![Transfer Market Intelligence](dashboards/Transfer-Market-Intelligence.jpg)
+*Analyze market value trends, identify undervalued players, and track transfer opportunities. Features value change percentages and volatility indicators.*
+
+#### **4. Injury Risk Management Dashboard**
+![Injury Risk Management](dashboards/Injury-Risk-Management.jpg)
+*Monitor player health scores, injury history, and availability predictions. Helps with squad rotation and injury prevention strategies.*
+
+#### **5. Football Leaderboards Dashboard**
+![Football Leaderboards](dashboards/Football-Leaderboards.jpg)
+*View competition standings, team rankings, and real-time tournament tables. Integrates streaming data for live updates.*
+
+---
+
+### **Apache NiFi Data Flow Processors**
+
+Visual ETL flows designed in Apache NiFi for streaming data ingestion:
+
+#### **Live Match Events Flow**
+![Live Matches Flow](nifi/live-matches.png)
+*InvokeHTTP processor fetches match data every 10 seconds from Football-Data.org API, routes by match status (IN_PLAY, FINISHED, SCHEDULED), and publishes to Kafka topic `live-match-events`.*
+
+#### **Live Competitions Flow**
+![Live Competitions Flow](nifi/live-competitions.png)
+*Fetches competition metadata every 60 seconds, parses JSON structure, extracts competition IDs, and publishes to Kafka topic `football-competitions`.*
+
+#### **Live Leaderboards Flow**
+![Live Leaderboards Flow](nifi/live-leaderboards.png)
+*Retrieves tournament standings every 60 seconds for each competition, parses team rankings and statistics, and publishes to Kafka topic `football-leaderboards`.*
+
+#### **Competitions to Leaderboards Mapping**
+![Competitions to Leaderboards](nifi/competitions-to-leaderboards.png)
+*Intermediate processor that extracts competition IDs from the competitions flow and dynamically triggers leaderboard fetching for each tournament.*
 
 ---
 
