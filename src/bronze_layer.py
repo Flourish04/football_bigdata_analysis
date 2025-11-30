@@ -34,7 +34,7 @@ class BronzeLayer:
         self.spark = self._create_spark_session()
         self.data_path = DATA_PATH
         self.bronze_path = BRONZE_PATH
-        logger.info(f"✅ Bronze Layer initialized")
+        logger.info(f"[SUCCESS] Bronze Layer initialized")
         logger.info(f"   Source: {self.data_path}")
         logger.info(f"   Output: {self.bronze_path}")
     
@@ -50,7 +50,7 @@ class BronzeLayer:
             .getOrCreate()
         
         spark.sparkContext.setLogLevel("WARN")
-        logger.info("✅ Spark session created for Bronze layer")
+        logger.info("[SUCCESS] Spark session created for Bronze layer")
         return spark
     
     def ingest_csv_to_bronze(self, csv_folder: str, table_name: str):
@@ -64,7 +64,7 @@ class BronzeLayer:
         csv_path = f"{self.data_path}/{csv_folder}/{table_name}.csv"
         bronze_output = f"{self.bronze_path}/{table_name}"
         
-        logger.info(f"📥 Ingesting: {csv_folder}/{table_name}.csv")
+        logger.info(f"[INPUT] Ingesting: {csv_folder}/{table_name}.csv")
         
         try:
             # Read CSV with schema inference
@@ -88,18 +88,18 @@ class BronzeLayer:
                 .mode("overwrite") \
                 .parquet(bronze_output)
             
-            logger.info(f"✅ Bronze: {table_name} → {record_count:,} records")
+            logger.info(f"[SUCCESS] Bronze: {table_name} → {record_count:,} records")
             
             return df_with_metadata
             
         except Exception as e:
-            logger.error(f"❌ Error ingesting {table_name}: {str(e)}")
+            logger.error(f"[ERROR] Error ingesting {table_name}: {str(e)}")
             raise
     
     def ingest_all_tables(self):
         """Ingest all source tables to Bronze layer"""
         logger.info("=" * 80)
-        logger.info("🥉 BRONZE LAYER - Starting data ingestion")
+        logger.info("[BRONZE] BRONZE LAYER - Starting data ingestion")
         logger.info("=" * 80)
         
         start_time = datetime.now()
@@ -133,27 +133,27 @@ class BronzeLayer:
                 total_records += count
             except Exception as e:
                 results[table] = {'status': 'FAILED', 'error': str(e)}
-                logger.error(f"❌ Failed to ingest {table}: {str(e)}")
+                logger.error(f"[ERROR] Failed to ingest {table}: {str(e)}")
         
         # Summary
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
         logger.info("=" * 80)
-        logger.info("🥉 BRONZE LAYER - Ingestion Summary")
+        logger.info("[BRONZE] BRONZE LAYER - Ingestion Summary")
         logger.info("=" * 80)
         
         success_count = sum(1 for r in results.values() if r['status'] == 'SUCCESS')
         failed_count = len(results) - success_count
         
-        logger.info(f"✅ Successful: {success_count}/{len(tables)}")
-        logger.info(f"❌ Failed: {failed_count}/{len(tables)}")
-        logger.info(f"📊 Total records: {total_records:,}")
-        logger.info(f"⏱️  Duration: {duration:.2f} seconds")
-        logger.info(f"📁 Output location: {self.bronze_path}")
+        logger.info(f"[SUCCESS] Successful: {success_count}/{len(tables)}")
+        logger.info(f"[ERROR] Failed: {failed_count}/{len(tables)}")
+        logger.info(f"[DATA] Total records: {total_records:,}")
+        logger.info(f"[TIME]  Duration: {duration:.2f} seconds")
+        logger.info(f"[FOLDER] Output location: {self.bronze_path}")
         
         if failed_count > 0:
-            logger.warning("\n⚠️  Failed tables:")
+            logger.warning("\n[WARNING]  Failed tables:")
             for table, result in results.items():
                 if result['status'] == 'FAILED':
                     logger.warning(f"   - {table}: {result.get('error', 'Unknown error')}")
@@ -164,7 +164,7 @@ class BronzeLayer:
     
     def verify_bronze_data(self):
         """Verify Bronze layer data quality"""
-        logger.info("\n🔍 Verifying Bronze layer data...")
+        logger.info("\n[CHECK] Verifying Bronze layer data...")
         
         tables = [
             'player_profiles', 'player_performances', 'player_market_value',
@@ -182,19 +182,19 @@ class BronzeLayer:
                 logger.info(f"   {table}: {count:,} rows, {columns} columns")
                 
             except Exception as e:
-                logger.warning(f"   ⚠️ {table}: Not found or error - {str(e)}")
+                logger.warning(f"   [WARNING] {table}: Not found or error - {str(e)}")
     
     def stop(self):
         """Stop Spark session"""
         if self.spark:
             self.spark.stop()
-            logger.info("🛑 Bronze Layer - Spark session stopped")
+            logger.info("[STOP] Bronze Layer - Spark session stopped")
 
 
 def main():
     """Main entry point for Bronze layer"""
     logger.info("\n" + "=" * 80)
-    logger.info("⚽ FOOTBALL ANALYTICS - BRONZE LAYER")
+    logger.info("[FOOTBALL] FOOTBALL ANALYTICS - BRONZE LAYER")
     logger.info("=" * 80)
     
     bronze = BronzeLayer()
@@ -206,10 +206,10 @@ def main():
         # Verify data
         bronze.verify_bronze_data()
         
-        logger.info("\n✅ Bronze layer processing completed successfully!")
+        logger.info("\n[SUCCESS] Bronze layer processing completed successfully!")
         
     except Exception as e:
-        logger.error(f"\n❌ Bronze layer processing failed: {str(e)}")
+        logger.error(f"\n[ERROR] Bronze layer processing failed: {str(e)}")
         raise
     finally:
         bronze.stop()

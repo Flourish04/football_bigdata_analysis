@@ -38,7 +38,7 @@ class SilverLayer:
         self.spark = self._create_spark_session()
         self.bronze_path = BRONZE_PATH
         self.silver_path = SILVER_PATH
-        logger.info(f"✅ Silver Layer initialized")
+        logger.info(f"[SUCCESS] Silver Layer initialized")
         logger.info(f"   Input: {self.bronze_path}")
         logger.info(f"   Output: {self.silver_path}")
     
@@ -54,12 +54,12 @@ class SilverLayer:
             .getOrCreate()
         
         spark.sparkContext.setLogLevel("WARN")
-        logger.info("✅ Spark session created for Silver layer")
+        logger.info("[SUCCESS] Spark session created for Silver layer")
         return spark
     
     def clean_player_profiles(self):
         """Clean and standardize player profiles based on actual schema"""
-        logger.info("📋 Cleaning: player_profiles")
+        logger.info("[CONFIG] Cleaning: player_profiles")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/player_profiles")
         
@@ -116,7 +116,7 @@ class SilverLayer:
         cleaned_df = cleaned_df.filter(col('player_id').isNotNull())
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: player_profiles → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: player_profiles → {count:,} records")
         
         # Write to Silver layer
         output_path = f"{self.silver_path}/player_profiles"
@@ -126,7 +126,7 @@ class SilverLayer:
     
     def clean_player_performances(self):
         """Clean and standardize player performances based on actual schema"""
-        logger.info("📋 Cleaning: player_performances")
+        logger.info("[CONFIG] Cleaning: player_performances")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/player_performances")
         
@@ -197,7 +197,7 @@ class SilverLayer:
         )
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: player_performances → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: player_performances → {count:,} records")
         
         output_path = f"{self.silver_path}/player_performances"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -206,7 +206,7 @@ class SilverLayer:
     
     def clean_player_market_values(self):
         """Clean and standardize market values based on actual schema"""
-        logger.info("📋 Cleaning: player_market_value")
+        logger.info("[CONFIG] Cleaning: player_market_value")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/player_market_value")
         
@@ -229,7 +229,7 @@ class SilverLayer:
             .dropDuplicates(['player_id', 'date_unix'])
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: player_market_value → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: player_market_value → {count:,} records")
         
         output_path = f"{self.silver_path}/player_market_value"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -238,7 +238,7 @@ class SilverLayer:
     
     def clean_player_injuries(self):
         """Clean and standardize injury records based on actual schema"""
-        logger.info("📋 Cleaning: player_injuries")
+        logger.info("[CONFIG] Cleaning: player_injuries")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/player_injuries")
         
@@ -267,7 +267,7 @@ class SilverLayer:
         cleaned_df = cleaned_df.filter(col('player_id').isNotNull())
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: player_injuries → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: player_injuries → {count:,} records")
         
         output_path = f"{self.silver_path}/player_injuries"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -276,7 +276,7 @@ class SilverLayer:
     
     def clean_transfer_history(self):
         """Clean and standardize transfer history based on actual schema"""
-        logger.info("📋 Cleaning: transfer_history")
+        logger.info("[CONFIG] Cleaning: transfer_history")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/transfer_history")
         
@@ -308,7 +308,7 @@ class SilverLayer:
         cleaned_df = cleaned_df.filter(col('player_id').isNotNull())
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: transfer_history → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: transfer_history → {count:,} records")
         
         output_path = f"{self.silver_path}/transfer_history"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -317,7 +317,7 @@ class SilverLayer:
     
     def clean_team_details(self):
         """Clean and standardize team details based on actual schema"""
-        logger.info("📋 Cleaning: team_details")
+        logger.info("[CONFIG] Cleaning: team_details")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/team_details")
         
@@ -352,7 +352,7 @@ class SilverLayer:
         cleaned_df = cleaned_df.filter(col('club_id').isNotNull())
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: team_details → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: team_details → {count:,} records")
         
         output_path = f"{self.silver_path}/team_details"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -361,7 +361,7 @@ class SilverLayer:
     
     def clean_player_national_performances(self):
         """Clean and standardize national team performances"""
-        logger.info("📋 Cleaning: player_national_performances")
+        logger.info("[CONFIG] Cleaning: player_national_performances")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/player_national_performances")
         
@@ -386,7 +386,7 @@ class SilverLayer:
         cleaned_df = cleaned_df.filter(col('player_id').isNotNull())
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: player_national_performances → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: player_national_performances → {count:,} records")
         
         output_path = f"{self.silver_path}/player_national_performances"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -395,7 +395,7 @@ class SilverLayer:
     
     def clean_player_teammates(self):
         """Clean and standardize player teammates data"""
-        logger.info("📋 Cleaning: player_teammates_played_with")
+        logger.info("[CONFIG] Cleaning: player_teammates_played_with")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/player_teammates_played_with")
         
@@ -425,7 +425,7 @@ class SilverLayer:
         )
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: player_teammates_played_with → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: player_teammates_played_with → {count:,} records")
         
         output_path = f"{self.silver_path}/player_teammates_played_with"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -434,7 +434,7 @@ class SilverLayer:
     
     def clean_team_competitions_seasons(self):
         """Clean and standardize team competitions seasons"""
-        logger.info("📋 Cleaning: team_competitions_seasons")
+        logger.info("[CONFIG] Cleaning: team_competitions_seasons")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/team_competitions_seasons")
         
@@ -463,7 +463,7 @@ class SilverLayer:
             .withColumn('silver_processed_timestamp', current_timestamp())
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: team_competitions_seasons → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: team_competitions_seasons → {count:,} records")
         
         output_path = f"{self.silver_path}/team_competitions_seasons"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -472,7 +472,7 @@ class SilverLayer:
     
     def clean_team_children(self):
         """Clean and standardize team children (parent/child relationships)"""
-        logger.info("📋 Cleaning: team_children")
+        logger.info("[CONFIG] Cleaning: team_children")
         
         df = self.spark.read.parquet(f"{self.bronze_path}/team_children")
         
@@ -496,7 +496,7 @@ class SilverLayer:
         )
         
         count = cleaned_df.count()
-        logger.info(f"✅ Silver: team_children → {count:,} records")
+        logger.info(f"[SUCCESS] Silver: team_children → {count:,} records")
         
         output_path = f"{self.silver_path}/team_children"
         cleaned_df.write.mode("overwrite").parquet(output_path)
@@ -506,7 +506,7 @@ class SilverLayer:
     def process_all_tables(self):
         """Process all tables from Bronze to Silver"""
         logger.info("=" * 80)
-        logger.info("🥈 SILVER LAYER - Starting data cleaning")
+        logger.info("[SILVER] SILVER LAYER - Starting data cleaning")
         logger.info("=" * 80)
         
         start_time = datetime.now()
@@ -536,23 +536,23 @@ class SilverLayer:
                 results[table_name] = {'status': 'SUCCESS', 'records': df.count()}
             except Exception as e:
                 results[table_name] = {'status': 'FAILED', 'error': str(e)}
-                logger.error(f"❌ Failed to process {table_name}: {str(e)}")
+                logger.error(f"[ERROR] Failed to process {table_name}: {str(e)}")
         
         # Summary
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
         logger.info("=" * 80)
-        logger.info("🥈 SILVER LAYER - Processing Summary")
+        logger.info("[SILVER] SILVER LAYER - Processing Summary")
         logger.info("=" * 80)
         
         success_count = sum(1 for r in results.values() if r['status'] == 'SUCCESS')
         total_records = sum(r.get('records', 0) for r in results.values() if r['status'] == 'SUCCESS')
         
-        logger.info(f"✅ Successful: {success_count}/{len(processors)}")
-        logger.info(f"📊 Total records: {total_records:,}")
-        logger.info(f"⏱️  Duration: {duration:.2f} seconds")
-        logger.info(f"📁 Output location: {self.silver_path}")
+        logger.info(f"[SUCCESS] Successful: {success_count}/{len(processors)}")
+        logger.info(f"[DATA] Total records: {total_records:,}")
+        logger.info(f"[TIME]  Duration: {duration:.2f} seconds")
+        logger.info(f"[FOLDER] Output location: {self.silver_path}")
         logger.info("=" * 80)
         
         return results
@@ -561,13 +561,13 @@ class SilverLayer:
         """Stop Spark session"""
         if self.spark:
             self.spark.stop()
-            logger.info("🛑 Silver Layer - Spark session stopped")
+            logger.info("[STOP] Silver Layer - Spark session stopped")
 
 
 def main():
     """Main entry point for Silver layer"""
     logger.info("\n" + "=" * 80)
-    logger.info("⚽ FOOTBALL ANALYTICS - SILVER LAYER")
+    logger.info("[FOOTBALL] FOOTBALL ANALYTICS - SILVER LAYER")
     logger.info("=" * 80)
     
     silver = SilverLayer()
@@ -576,10 +576,10 @@ def main():
         # Process all tables
         results = silver.process_all_tables()
         
-        logger.info("\n✅ Silver layer processing completed successfully!")
+        logger.info("\n[SUCCESS] Silver layer processing completed successfully!")
         
     except Exception as e:
-        logger.error(f"\n❌ Silver layer processing failed: {str(e)}")
+        logger.error(f"\n[ERROR] Silver layer processing failed: {str(e)}")
         raise
     finally:
         silver.stop()

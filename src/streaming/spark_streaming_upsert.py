@@ -57,11 +57,11 @@ def create_spark_session():
     Create Spark session with Kafka and Postgres support.
     Automatically downloads Kafka connector and includes Postgres JDBC driver.
     """
-    print("🔧 Creating Spark session with dependencies...")
+    print("[SETUP] Creating Spark session with dependencies...")
     
     # Check if PostgreSQL JDBC jar exists
     if not POSTGRESQL_JAR.exists():
-        print(f"⚠️  Warning: PostgreSQL JDBC jar not found at {POSTGRESQL_JAR}")
+        print(f"[WARNING]  Warning: PostgreSQL JDBC jar not found at {POSTGRESQL_JAR}")
         print("   Download it from: https://jdbc.postgresql.org/download/")
         sys.exit(1)
     
@@ -221,12 +221,12 @@ def write_to_postgres(batch_df, batch_id):
         print(f"Batch {batch_id}: No data to process")
         return
     
-    print(f"📦 Batch {batch_id}: Processing {batch_df.count()} records (Bronze layer)...")
+    print(f"[BATCH] Batch {batch_id}: Processing {batch_df.count()} records (Bronze layer)...")
     
     # BRONZE → SILVER: Normalize and clean data
-    print(f"🔄 Batch {batch_id}: Transforming to Silver layer...")
+    print(f"[PROCESS] Batch {batch_id}: Transforming to Silver layer...")
     silver_df = normalize_to_silver(batch_df)
-    print(f"✅ Batch {batch_id}: Silver layer - {silver_df.count()} records after quality checks")
+    print(f"[SUCCESS] Batch {batch_id}: Silver layer - {silver_df.count()} records after quality checks")
     
     # Deduplicate within batch - keep latest record for each match_id
     from pyspark.sql.window import Window
@@ -236,7 +236,7 @@ def write_to_postgres(batch_df, batch_id):
     silver_df = silver_df.withColumn("row_num", row_number().over(window_spec)) \
                          .filter(col("row_num") == 1) \
                          .drop("row_num")
-    print(f"🔍 Batch {batch_id}: After deduplication - {silver_df.count()} unique matches")
+    print(f"[CHECK] Batch {batch_id}: After deduplication - {silver_df.count()} unique matches")
     
     # Postgres connection properties
     jdbc_url = f"jdbc:postgresql://{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/{os.environ.get('POSTGRES_DB', 'football_analytics')}"
@@ -247,7 +247,7 @@ def write_to_postgres(batch_df, batch_id):
     }
     
     # SILVER → POSTGRES: Write to staging table
-    print(f"💾 Batch {batch_id}: Writing Silver data to Postgres staging...")
+    print(f"[SAVE] Batch {batch_id}: Writing Silver data to Postgres staging...")
     staging_table = "streaming.football_matches_staging"
     silver_df.write \
         .format("jdbc") \
@@ -259,7 +259,7 @@ def write_to_postgres(batch_df, batch_id):
         .mode("append") \
         .save()
     
-    print(f"✅ Batch {batch_id}: Wrote {silver_df.count()} records to staging table")
+    print(f"[SUCCESS] Batch {batch_id}: Wrote {silver_df.count()} records to staging table")
     
     # Execute upsert from staging to main table
     import psycopg2
@@ -337,7 +337,7 @@ def write_to_postgres(batch_df, batch_id):
             processing_ts = EXCLUDED.processing_ts;
         """
         
-        print(f"🔄 Batch {batch_id}: Executing upsert to main table...")
+        print(f"[PROCESS] Batch {batch_id}: Executing upsert to main table...")
         cursor.execute(upsert_sql)
         upserted_count = cursor.rowcount
         conn.commit()
@@ -349,11 +349,11 @@ def write_to_postgres(batch_df, batch_id):
         cursor.close()
         conn.close()
         
-        print(f"✅ Batch {batch_id}: Successfully upserted {upserted_count} records to main table")
-        print(f"🎯 Batch {batch_id} COMPLETE: Bronze({batch_df.count()}) → Silver({silver_df.count()}) → Postgres({upserted_count})")
+        print(f"[SUCCESS] Batch {batch_id}: Successfully upserted {upserted_count} records to main table")
+        print(f"[COMPLETE] Batch {batch_id} COMPLETE: Bronze({batch_df.count()}) → Silver({silver_df.count()}) → Postgres({upserted_count})")
         
     except Exception as e:
-        print(f"❌ Batch {batch_id}: Error during upsert: {e}")
+        print(f"[ERROR] Batch {batch_id}: Error during upsert: {e}")
         import traceback
         traceback.print_exc()
 
@@ -363,7 +363,7 @@ def main():
     Automatically loads configuration from environment variables or uses defaults.
     """
     print("="*60)
-    print("🚀 Football Match Streaming Pipeline")
+    print("[START] Football Match Streaming Pipeline")
     print("   Bronze → Silver → Postgres")
     print("="*60)
     print()
@@ -381,7 +381,7 @@ def main():
         'postgres_password': os.environ.get('POSTGRES_PASSWORD', 'your_password')
     }
     
-    print(f"📊 Configuration:")
+    print(f"[CONFIG] Configuration:")
     print(f"   Kafka Bootstrap: {config['kafka_bootstrap']}")
     print(f"   Kafka Topic: {config['kafka_topic']}")
     print(f"   Postgres: {config['postgres_user']}@{config['postgres_host']}:{config['postgres_port']}/{config['postgres_db']}")
@@ -394,11 +394,11 @@ def main():
         spark = create_spark_session()
         spark.sparkContext.setLogLevel("WARN")
         
-        print("✅ Spark session created")
+        print("[SUCCESS] Spark session created")
         print()
         
         # Read from Kafka
-        print("🔗 Connecting to Kafka...")
+        print("[CONNECT] Connecting to Kafka...")
         df = spark.readStream \
             .format("kafka") \
             .option("kafka.bootstrap.servers", config['kafka_bootstrap']) \
@@ -411,7 +411,7 @@ def main():
                     f'username="{config["kafka_api_key"]}" password="{config["kafka_api_secret"]}";') \
             .load()
         
-        print("✅ Connected to Kafka stream")
+        print("[SUCCESS] Connected to Kafka stream")
         print()
         
         # Parse JSON
@@ -424,7 +424,7 @@ def main():
             ) \
             .select("data.*", "raw_json")
         
-        print("📊 Starting streaming query...")
+        print("[CONFIG] Starting streaming query...")
         print("   Trigger: 15 seconds microbatch (aligned with NiFi 10s interval)")
         print("   Press Ctrl+C to stop")
         print()
@@ -437,7 +437,7 @@ def main():
             .outputMode("append") \
             .start()
         
-        print("✅ Streaming query started!")
+        print("[SUCCESS] Streaming query started!")
         print()
         
         # Wait for termination with proper signal handling
@@ -450,23 +450,23 @@ def main():
             
             # Redirect stderr to suppress Py4J tracebacks
             with contextlib.redirect_stderr(io.StringIO()):
-                print("\n\n⚠️  Received Ctrl+C, stopping streaming...")
+                print("\n\n[WARNING]  Received Ctrl+C, stopping streaming...")
                 try:
                     query.stop()
                 except Exception:
                     pass
-            print("✅ Streaming query stopped")
+            print("[SUCCESS] Streaming query stopped")
         
     except KeyboardInterrupt:
-        print("\n\n⚠️  Received Ctrl+C during initialization")
+        print("\n\n[WARNING]  Received Ctrl+C during initialization")
         
     except Exception as e:
         # Ignore Py4J errors during shutdown
         error_type = type(e).__name__
         if "Py4J" in error_type or "Network" in error_type:
-            print("\n⚠️  Stream interrupted by user")
+            print("\n[WARNING]  Stream interrupted by user")
         else:
-            print(f"\n❌ Error occurred: {e}")
+            print(f"\n[ERROR] Error occurred: {e}")
             import traceback
             traceback.print_exc()
             sys.exit(1)
@@ -482,8 +482,8 @@ def main():
                     spark.stop()
                 except Exception:
                     pass
-            print("🛑 Spark session stopped")
-        print("\n👋 Pipeline stopped. Goodbye!\n")
+            print("[STOP] Spark session stopped")
+        print("\n[BYE] Pipeline stopped. Goodbye!\n")
 
 if __name__ == '__main__':
     import contextlib
@@ -511,5 +511,5 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         suppressor.suppress = True
-        print("\n👋 Stopped by user. Goodbye!\n")
+        print("\n[BYE] Stopped by user. Goodbye!\n")
         sys.exit(0)

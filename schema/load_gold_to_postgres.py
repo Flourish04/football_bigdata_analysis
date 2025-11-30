@@ -71,7 +71,7 @@ class PostgreSQLLoader:
         
     def initialize_spark(self):
         """Initialize Spark session with PostgreSQL JDBC driver"""
-        logger.info("🚀 Initializing Spark session...")
+        logger.info("[START] Initializing Spark session...")
         
         # Check if PostgreSQL JDBC driver is available
         jdbc_jar_path = self._find_postgres_jdbc_driver()
@@ -87,14 +87,14 @@ class PostgreSQLLoader:
             logger.info(f"   Using PostgreSQL JDBC driver: {jdbc_jar_path}")
             builder = builder.config("spark.jars", jdbc_jar_path)
         else:
-            logger.warning("   ⚠️  PostgreSQL JDBC driver not found")
+            logger.warning("   [WARNING]  PostgreSQL JDBC driver not found")
             logger.warning("   Download from: https://jdbc.postgresql.org/download/")
             logger.warning("   Place in: /usr/share/java/ or specify with SPARK_CLASSPATH")
         
         self.spark = builder.getOrCreate()
         self.spark.sparkContext.setLogLevel("WARN")
         
-        logger.info("✅ Spark session initialized")
+        logger.info("[SUCCESS] Spark session initialized")
         
     def _find_postgres_jdbc_driver(self) -> str:
         """Find PostgreSQL JDBC driver in common locations"""
@@ -116,13 +116,13 @@ class PostgreSQLLoader:
         
     def load_table(self, table_name: str) -> bool:
         """Load a single table from Parquet to PostgreSQL"""
-        logger.info(f"📊 Loading table: {table_name}")
+        logger.info(f"[DATA] Loading table: {table_name}")
         
         input_path = f"{self.gold_path}/{table_name}"
         
         # Check if Parquet file exists
         if not os.path.exists(input_path):
-            logger.error(f"   ❌ Input path not found: {input_path}")
+            logger.error(f"   [ERROR] Input path not found: {input_path}")
             self.load_stats[table_name] = {
                 'status': 'FAILED',
                 'error': 'Input file not found',
@@ -156,9 +156,9 @@ class PostgreSQLLoader:
             
             duration = (datetime.now() - start_time).total_seconds()
             
-            logger.info(f"   ✅ {table_name} loaded successfully")
-            logger.info(f"   📊 Records: {record_count:,}")
-            logger.info(f"   ⏱️  Duration: {duration:.2f}s")
+            logger.info(f"   [SUCCESS] {table_name} loaded successfully")
+            logger.info(f"   [DATA] Records: {record_count:,}")
+            logger.info(f"   [TIME]  Duration: {duration:.2f}s")
             
             self.load_stats[table_name] = {
                 'status': 'SUCCESS',
@@ -169,7 +169,7 @@ class PostgreSQLLoader:
             return True
             
         except Exception as e:
-            logger.error(f"   ❌ Failed to load {table_name}: {str(e)}")
+            logger.error(f"   [ERROR] Failed to load {table_name}: {str(e)}")
             self.load_stats[table_name] = {
                 'status': 'FAILED',
                 'error': str(e),
@@ -213,7 +213,7 @@ class PostgreSQLLoader:
         logger.info("=" * 60)
         
         for table_name, stats in self.load_stats.items():
-            status_icon = "✅" if stats['status'] == 'SUCCESS' else "❌"
+            status_icon = "[SUCCESS]" if stats['status'] == 'SUCCESS' else "[ERROR]"
             logger.info(f"{status_icon} {table_name}: {stats['status']}")
             
             if stats['status'] == 'SUCCESS':
@@ -223,13 +223,13 @@ class PostgreSQLLoader:
                 logger.info(f"   Error: {stats.get('error', 'Unknown error')}")
         
         logger.info("")
-        logger.info(f"✅ Successful: {success_count}/{len(TABLES)}")
-        logger.info(f"❌ Failed: {failed_count}/{len(TABLES)}")
-        logger.info(f"📊 Total records loaded: {total_records:,}")
+        logger.info(f"[SUCCESS] Successful: {success_count}/{len(TABLES)}")
+        logger.info(f"[ERROR] Failed: {failed_count}/{len(TABLES)}")
+        logger.info(f"[DATA] Total records loaded: {total_records:,}")
         logger.info("")
         
         if success_count == len(TABLES):
-            logger.info("🎉 All tables loaded successfully!")
+            logger.info("[COMPLETE] All tables loaded successfully!")
             logger.info("")
             logger.info("Next steps:")
             logger.info("  1. Run VACUUM ANALYZE on all tables")
@@ -237,7 +237,7 @@ class PostgreSQLLoader:
             logger.info("     SELECT analytics.refresh_all_materialized_views();")
             logger.info("  3. Test queries on loaded data")
         else:
-            logger.warning(f"⚠️  {failed_count} table(s) failed to load")
+            logger.warning(f"[WARNING]  {failed_count} table(s) failed to load")
             logger.warning("Check logs for details: /tmp/postgres_loader.log")
         
         # Cleanup
@@ -250,7 +250,7 @@ def main():
     """Main execution"""
     # Check if Gold Layer path exists
     if not os.path.exists(GOLD_PATH):
-        logger.error(f"❌ Gold Layer path not found: {GOLD_PATH}")
+        logger.error(f"[ERROR] Gold Layer path not found: {GOLD_PATH}")
         logger.error("   Please run Gold Layer ETL first:")
         logger.error("   python src/gold_layer.py")
         sys.exit(1)
@@ -270,8 +270,8 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        logger.info("\n⚠️  Load interrupted by user")
+        logger.info("\n[WARNING]  Load interrupted by user")
         sys.exit(1)
     except Exception as e:
-        logger.error(f"❌ Fatal error: {str(e)}", exc_info=True)
+        logger.error(f"[ERROR] Fatal error: {str(e)}", exc_info=True)
         sys.exit(1)

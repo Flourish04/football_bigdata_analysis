@@ -18,18 +18,18 @@ def print_header(title: str):
 
 def print_success(message: str, elapsed: float):
     """Print success message with timing"""
-    print(f"\n✅ {message} ({elapsed:.2f}s)")
+    print(f"\n[SUCCESS] {message} ({elapsed:.2f}s)")
 
 
 def print_error(message: str, error: Exception):
     """Print error message"""
-    print(f"\n❌ {message}")
+    print(f"\n[ERROR] {message}")
     print(f"   Error: {str(error)}")
 
 
 def run_bronze_layer():
     """Step 1: Load CSV → Parquet (Bronze)"""
-    print_header("🥉 BRONZE LAYER: CSV → Parquet")
+    print_header("[BRONZE] BRONZE LAYER: CSV → Parquet")
     start = time.time()
 
     from src.bronze_layer import BronzeLayer
@@ -45,7 +45,7 @@ def run_bronze_layer():
 
 def run_silver_layer():
     """Step 2: Clean & Standardize (Silver)"""
-    print_header("🥈 SILVER LAYER: Data Cleaning & Standardization")
+    print_header("SILVER LAYER: Data Cleaning & Standardization")
     start = time.time()
 
     from src.silver_layer import SilverLayer
@@ -61,7 +61,7 @@ def run_silver_layer():
 
 def run_gold_layer():
     """Step 3: Analytics Aggregation (Gold)"""
-    print_header("🥇 GOLD LAYER: Analytics Aggregation")
+    print_header("GOLD LAYER: Analytics Aggregation")
     start = time.time()
 
     from src.gold_layer import GoldLayer
@@ -77,7 +77,7 @@ def run_gold_layer():
 
 def load_silver_to_postgres():
     """Step 4: Load Silver to PostgreSQL"""
-    print_header("📊 LOAD SILVER TO POSTGRESQL")
+    print_header("LOAD SILVER TO POSTGRESQL")
     start = time.time()
 
     # Run the loader script as a subprocess to ensure JDBC driver is loaded in a fresh process
@@ -95,7 +95,7 @@ def load_silver_to_postgres():
 
 def load_gold_to_postgres():
     """Step 5: Load Gold to PostgreSQL"""
-    print_header("📊 LOAD GOLD TO POSTGRESQL")
+    print_header("LOAD GOLD TO POSTGRESQL")
     start = time.time()
 
     # Run the gold loader script as a subprocess (it handles its own Spark/JDBC setup)
@@ -113,7 +113,7 @@ def load_gold_to_postgres():
 
 def create_views():
     """Step 6: Create Views and Materialized Views"""
-    print_header("🔍 CREATE VIEWS & MATERIALIZED VIEWS")
+    print_header("CREATE VIEWS & MATERIALIZED VIEWS")
     start = time.time()
 
     import subprocess
@@ -130,7 +130,7 @@ def create_views():
 
 def run_validation():
     """Step 6: Data Quality Validation"""
-    print_header("✅ DATA QUALITY VALIDATION")
+    print_header("DATA QUALITY VALIDATION")
     start = time.time()
 
     import subprocess
@@ -159,10 +159,10 @@ def main():
     """Run full ETL pipeline"""
     pipeline_start = time.time()
 
-    print("\n" + "🚀" * 40)
+    print("\n" + "=" * 80)
     print("  FOOTBALL ANALYTICS ETL PIPELINE")
     print(f"  Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("🚀" * 40)
+    print("=" * 80)
 
     timings = {}
 
@@ -192,7 +192,7 @@ def main():
         total_elapsed = time.time() - pipeline_start
 
         print("\n" + "=" * 80)
-        print("  📈 PIPELINE SUMMARY")
+        print("  [CHART] PIPELINE SUMMARY")
         print("=" * 80)
         print(f"  Bronze Layer:       {timings['bronze']:>8.2f}s")
         print(f"  Silver Layer:       {timings['silver']:>8.2f}s")
@@ -205,17 +205,17 @@ def main():
         print(f"  TOTAL:              {total_elapsed:>8.2f}s")
         print("=" * 80)
 
-        print("\n🎉 PIPELINE COMPLETED SUCCESSFULLY!")
+        print("\n[COMPLETE] PIPELINE COMPLETED SUCCESSFULLY!")
         print(f"   Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
         return 0
 
     except KeyboardInterrupt:
-        print("\n\n⚠️  Pipeline interrupted by user")
+        print("\n\n[WARNING] Pipeline interrupted by user")
         return 1
 
     except Exception as e:
-        print("\n\n❌ PIPELINE FAILED")
+        print("\n\n[FAILED] PIPELINE FAILED")
         print(f"   Error: {str(e)}")
         import traceback
 

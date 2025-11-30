@@ -38,16 +38,16 @@ def get_db_connection():
         conn = psycopg2.connect(**DB_CONFIG)
         return conn
     except Exception as e:
-        print(f"❌ Error connecting to database: {e}")
+        print(f"[ERROR] Error connecting to database: {e}")
         raise
 
 
 def load_competitions(conn, file_path):
     """Load competitions data from JSON file"""
-    print(f"\n📊 Loading competitions from {file_path}")
+    print(f"\n[DATA] Loading competitions from {file_path}")
     
     if not file_path.exists():
-        print(f"⚠️  File not found: {file_path}")
+        print(f"[WARNING] File not found: {file_path}")
         return 0
     
     # Read JSON file
@@ -56,7 +56,7 @@ def load_competitions(conn, file_path):
     
     competitions = data.get('competitions', [])
     if not competitions:
-        print("⚠️  No competitions found in file")
+        print("[WARNING] No competitions found in file")
         return 0
     
     print(f"   Found {len(competitions)} competitions")
@@ -131,23 +131,23 @@ def load_competitions(conn, file_path):
     rows_affected = cursor.rowcount
     cursor.close()
     
-    print(f"✅ Loaded {rows_affected} competitions")
+    print(f"[SUCCESS] Loaded {rows_affected} competitions")
     return rows_affected
 
 
 def load_leaderboards(conn, leaderboards_dir):
     """Load leaderboards data from JSON files"""
-    print(f"\n📊 Loading leaderboards from {leaderboards_dir}")
+    print(f"\n[DATA] Loading leaderboards from {leaderboards_dir}")
     
     if not leaderboards_dir.exists():
-        print(f"⚠️  Directory not found: {leaderboards_dir}")
+        print(f"[WARNING] Directory not found: {leaderboards_dir}")
         return 0
     
     # Find all leaderboard JSON files
     leaderboard_files = sorted(list(leaderboards_dir.glob('*.json')))
     
     if not leaderboard_files:
-        print("⚠️  No leaderboard files found")
+        print("[WARNING] No leaderboard files found")
         return 0
     
     print(f"   Found {len(leaderboard_files)} leaderboard file(s)")
@@ -168,7 +168,7 @@ def load_leaderboards(conn, leaderboards_dir):
         standings = data.get('standings', [])
         
         if not standings:
-            print(f"      ⚠️  No standings found in {file_path.name}")
+            print(f"      [WARNING] No standings found in {file_path.name}")
             continue
         
         # Prepare data for insertion
@@ -228,7 +228,7 @@ def load_leaderboards(conn, leaderboards_dir):
                 leaderboard_records.append(record)
         
         if not leaderboard_records:
-            print(f"      ⚠️  No records extracted from {file_path.name}")
+            print(f"      [WARNING] No records extracted from {file_path.name}")
             continue
         
         # Insert into database
@@ -268,11 +268,11 @@ def load_leaderboards(conn, leaderboards_dir):
         rows_affected = cursor.rowcount
         total_records += rows_affected
         
-        print(f"      ✅ Loaded {rows_affected} leaderboard entries from {file_path.name}")
+        print(f"      [SUCCESS] Loaded {rows_affected} leaderboard entries from {file_path.name}")
     
     cursor.close()
     
-    print(f"✅ Total loaded: {total_records} leaderboard entries")
+    print(f"[SUCCESS] Total loaded: {total_records} leaderboard entries")
     return total_records
 
 
@@ -290,9 +290,9 @@ def create_schema_if_not_exists(conn):
     existing_tables = [row[0] for row in cursor.fetchall()]
     
     if 'competitions' in existing_tables and 'leaderboards' in existing_tables:
-        print("✅ Schema and tables already exist, skipping creation")
+        print("[SUCCESS] Schema and tables already exist, skipping creation")
     else:
-        print(f"⚠️  Missing tables. Please run: psql -f schema/streaming_competitions_leaderboards.sql")
+        print(f"[WARNING] Missing tables. Please run: psql -f schema/streaming_competitions_leaderboards.sql")
         print(f"   Existing tables: {existing_tables}")
     
     cursor.close()
@@ -300,16 +300,16 @@ def create_schema_if_not_exists(conn):
 
 def refresh_materialized_views(conn):
     """Refresh materialized views"""
-    print("\n🔄 Refreshing materialized views...")
+    print("\n[PROCESS] Refreshing materialized views...")
     cursor = conn.cursor()
     
     try:
         cursor.execute("SELECT streaming.refresh_competition_rankings()")
         conn.commit()
-        print("✅ Materialized views refreshed")
+        print("[SUCCESS] Materialized views refreshed")
     except Exception as e:
         conn.rollback()  # Rollback failed refresh to allow subsequent queries
-        print(f"⚠️  Error refreshing materialized views: {e}")
+        print(f"[WARNING] Error refreshing materialized views: {e}")
         print("   (This is expected if views haven't been created yet)")
     finally:
         cursor.close()
@@ -320,7 +320,7 @@ def print_summary(conn):
     cursor = conn.cursor()
     
     print("\n" + "="*70)
-    print("📊 DATA SUMMARY")
+    print("[DATA] DATA SUMMARY")
     print("="*70)
     
     # Competitions count
@@ -339,7 +339,7 @@ def print_summary(conn):
     print(f"   Unique teams: {team_count}")
     
     # Competition list
-    print("\n📋 Loaded Competitions:")
+    print("\n[CONFIG] Loaded Competitions:")
     cursor.execute("""
         SELECT competition_code, competition_name, competition_type, area_name, current_matchday
         FROM streaming.competitions
@@ -360,13 +360,13 @@ def main():
     print("╔" + "="*68 + "╗")
     print("║" + " "*15 + "LOAD COMPETITIONS & LEADERBOARDS" + " "*21 + "║")
     print("╚" + "="*68 + "╝")
-    print(f"\n📅 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"\nDate: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     try:
         # Connect to database
-        print("\n🔌 Connecting to PostgreSQL...")
+        print("\n[CONNECT] Connecting to PostgreSQL...")
         conn = get_db_connection()
-        print(f"✅ Connected to {DB_CONFIG['database']}@{DB_CONFIG['host']}")
+        print(f"[SUCCESS] Connected to {DB_CONFIG['database']}@{DB_CONFIG['host']}")
         
         # Create schema if needed
         create_schema_if_not_exists(conn)
@@ -390,10 +390,10 @@ def main():
         # Close connection
         conn.close()
         
-        print("\n✅ COMPLETED SUCCESSFULLY!")
+        print("\n[SUCCESS] COMPLETED SUCCESSFULLY!")
         
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"\n[ERROR] ERROR: {e}")
         import traceback
         traceback.print_exc()
         return 1

@@ -38,21 +38,21 @@ class DataValidator:
             .appName('DataValidation') \
             .config('spark.sql.legacy.timeParserPolicy', 'LEGACY') \
             .getOrCreate()
-        print("✅ Spark session initialized")
+        print("[SUCCESS] Spark session initialized")
     
     def init_postgres(self):
         """Initialize PostgreSQL connection"""
         try:
             self.pg_conn = psycopg2.connect(**POSTGRES_CONFIG)
-            print("✅ PostgreSQL connection established")
+            print("[SUCCESS] PostgreSQL connection established")
         except Exception as e:
-            self.errors.append(f"❌ PostgreSQL connection failed: {e}")
+            self.errors.append(f"[ERROR] PostgreSQL connection failed: {e}")
             return False
         return True
     
     def validate_schema_precision(self):
         """Validate decimal precision in PostgreSQL"""
-        print("\n📋 1. SCHEMA & PRECISION VALIDATION")
+        print("\n[CONFIG] 1. SCHEMA & PRECISION VALIDATION")
         print("=" * 60)
         
         cursor = self.pg_conn.cursor()
@@ -79,15 +79,15 @@ class DataValidator:
             if col in expected_types:
                 exp_dtype, exp_prec, exp_scale = expected_types[col]
                 if dtype == exp_dtype and (dtype in ['bigint', 'integer'] or scale == exp_scale):
-                    print(f"  ✅ {col}: {dtype}({precision},{scale or 0}) - OK")
+                    print(f"  [SUCCESS] {col}: {dtype}({precision},{scale or 0}) - OK")
                 else:
-                    msg = f"  ❌ {col}: Expected {exp_dtype}({exp_prec},{exp_scale}), got {dtype}({precision},{scale})"
+                    msg = f"  [ERROR] {col}: Expected {exp_dtype}({exp_prec},{exp_scale}), got {dtype}({precision},{scale})"
                     print(msg)
                     self.errors.append(msg)
     
     def validate_value_ranges(self):
         """Validate data value ranges"""
-        print("\n📊 2. VALUE RANGE VALIDATION")
+        print("\n[DATA] 2. VALUE RANGE VALIDATION")
         print("=" * 60)
         
         cursor = self.pg_conn.cursor()
@@ -99,9 +99,9 @@ class DataValidator:
         """)
         unrealistic_rates = cursor.fetchone()[0]
         if unrealistic_rates == 0:
-            print(f"  ✅ Unrealistic rates (>3.0): 0")
+            print(f"  [SUCCESS] Unrealistic rates (>3.0): 0")
         else:
-            msg = f"  ❌ Found {unrealistic_rates} unrealistic rate values"
+            msg = f"  [ERROR] Found {unrealistic_rates} unrealistic rate values"
             print(msg)
             self.errors.append(msg)
         
@@ -116,17 +116,17 @@ class DataValidator:
         """)
         max_goals, max_assists, max_perf, min_perf = cursor.fetchone()
         
-        print(f"  ✅ Max goals/90min: {max_goals:.4f} (cap: 3.0000)")
-        print(f"  ✅ Max assists/90min: {max_assists:.4f} (cap: 3.0000)")
-        print(f"  ✅ Performance score range: {min_perf:.2f} - {max_perf:.2f}")
+        print(f"  [SUCCESS] Max goals/90min: {max_goals:.4f} (cap: 3.0000)")
+        print(f"  [SUCCESS] Max assists/90min: {max_assists:.4f} (cap: 3.0000)")
+        print(f"  [SUCCESS] Performance score range: {min_perf:.2f} - {max_perf:.2f}")
         
         if max_goals > 3.0 or max_assists > 3.0:
-            msg = f"  ❌ Rates exceed cap: goals={max_goals}, assists={max_assists}"
+            msg = f"  [ERROR] Rates exceed cap: goals={max_goals}, assists={max_assists}"
             print(msg)
             self.errors.append(msg)
         
         if max_perf > 100.0 or min_perf < 0:
-            msg = f"  ❌ Performance score out of range: {min_perf} - {max_perf}"
+            msg = f"  [ERROR] Performance score out of range: {min_perf} - {max_perf}"
             print(msg)
             self.errors.append(msg)
         
@@ -137,15 +137,15 @@ class DataValidator:
         """)
         negative_values = cursor.fetchone()[0]
         if negative_values == 0:
-            print(f"  ✅ Negative market values: 0")
+            print(f"  [SUCCESS] Negative market values: 0")
         else:
-            msg = f"  ❌ Found {negative_values} negative market values"
+            msg = f"  [ERROR] Found {negative_values} negative market values"
             print(msg)
             self.errors.append(msg)
     
     def validate_null_values(self):
         """Validate NULL values in critical fields"""
-        print("\n🔍 3. NULL VALUE VALIDATION")
+        print("\n[CHECK] 3. NULL VALUE VALIDATION")
         print("=" * 60)
         
         cursor = self.pg_conn.cursor()
@@ -160,9 +160,9 @@ class DataValidator:
             """)
             null_count = cursor.fetchone()[0]
             if null_count == 0:
-                print(f"  ✅ {field}: 0 NULLs")
+                print(f"  [SUCCESS] {field}: 0 NULLs")
             else:
-                msg = f"  ❌ {field}: {null_count} NULL values found"
+                msg = f"  [ERROR] {field}: {null_count} NULL values found"
                 print(msg)
                 self.errors.append(msg)
         
@@ -178,22 +178,22 @@ class DataValidator:
         """)
         height_nulls, goals_nulls, total, height_pct, goals_pct = cursor.fetchone()
         
-        print(f"  ℹ️  height NULLs: {height_nulls:,} ({height_pct}%) - Acceptable if < 5%")
-        print(f"  ℹ️  goals_per_90min NULLs: {goals_nulls:,} ({goals_pct}%) - Acceptable if < 30%")
+        print(f"  [INFO]  height NULLs: {height_nulls:,} ({height_pct}%) - Acceptable if < 5%")
+        print(f"  [INFO]  goals_per_90min NULLs: {goals_nulls:,} ({goals_pct}%) - Acceptable if < 30%")
         
         if height_pct > 5.0:
-            msg = f"  ⚠️  High height NULL percentage: {height_pct}%"
+            msg = f"  [WARNING]  High height NULL percentage: {height_pct}%"
             print(msg)
             self.warnings.append(msg)
         
         if goals_pct > 30.0:
-            msg = f"  ⚠️  High goals/90min NULL percentage: {goals_pct}%"
+            msg = f"  [WARNING]  High goals/90min NULL percentage: {goals_pct}%"
             print(msg)
             self.warnings.append(msg)
     
     def validate_duplicates(self):
         """Check for duplicate records"""
-        print("\n🔄 4. DUPLICATE DETECTION")
+        print("\n[PROCESS] 4. DUPLICATE DETECTION")
         print("=" * 60)
         
         cursor = self.pg_conn.cursor()
@@ -209,9 +209,9 @@ class DataValidator:
         duplicates = cursor.fetchall()
         
         if len(duplicates) == 0:
-            print(f"  ✅ player_analytics_360: No duplicates")
+            print(f"  [SUCCESS] player_analytics_360: No duplicates")
         else:
-            msg = f"  ❌ Found {len(duplicates)} duplicate player_ids"
+            msg = f"  [ERROR] Found {len(duplicates)} duplicate player_ids"
             print(msg)
             self.errors.append(msg)
             for dup in duplicates:
@@ -228,15 +228,15 @@ class DataValidator:
         silver_dups = cursor.fetchall()
         
         if len(silver_dups) == 0:
-            print(f"  ✅ player_performances: No duplicates")
+            print(f"  [SUCCESS] player_performances: No duplicates")
         else:
-            msg = f"  ⚠️  Found {len(silver_dups)} duplicate player-season combinations"
+            msg = f"  [WARNING]  Found {len(silver_dups)} duplicate player-season combinations"
             print(msg)
             self.warnings.append(msg)
     
     def validate_referential_integrity(self):
         """Validate foreign key relationships"""
-        print("\n🔗 5. REFERENTIAL INTEGRITY")
+        print("\n[CONNECT] 5. REFERENTIAL INTEGRITY")
         print("=" * 60)
         
         cursor = self.pg_conn.cursor()
@@ -252,15 +252,15 @@ class DataValidator:
         orphans = cursor.fetchone()[0]
         
         if orphans == 0:
-            print(f"  ✅ All Gold player_ids exist in Silver")
+            print(f"  [SUCCESS] All Gold player_ids exist in Silver")
         else:
-            msg = f"  ❌ Found {orphans} orphan records in Gold layer"
+            msg = f"  [ERROR] Found {orphans} orphan records in Gold layer"
             print(msg)
             self.errors.append(msg)
     
     def validate_record_counts(self):
         """Validate record counts across layers"""
-        print("\n📈 6. RECORD COUNT VALIDATION")
+        print("\n[CHART] 6. RECORD COUNT VALIDATION")
         print("=" * 60)
         
         cursor = self.pg_conn.cursor()
@@ -278,16 +278,16 @@ class DataValidator:
             actual_count = cursor.fetchone()[0]
             
             if min_count <= actual_count <= max_count:
-                print(f"  ✅ {table}: {actual_count:,} (expected {min_count:,}-{max_count:,})")
+                print(f"  [SUCCESS] {table}: {actual_count:,} (expected {min_count:,}-{max_count:,})")
             else:
-                msg = f"  ⚠️  {table}: {actual_count:,} (expected {min_count:,}-{max_count:,})"
+                msg = f"  [WARNING]  {table}: {actual_count:,} (expected {min_count:,}-{max_count:,})"
                 print(msg)
                 self.warnings.append(msg)
     
 
     def validate_views(self):
         """Validate views and materialized views"""
-        print("\n🔍 7. VIEWS & MATERIALIZED VIEWS VALIDATION")
+        print("\n[CHECK] 7. VIEWS & MATERIALIZED VIEWS VALIDATION")
         print("=" * 60)
         
         cursor = self.pg_conn.cursor()
@@ -301,7 +301,7 @@ class DataValidator:
                 ORDER BY table_name
             """)
             views = cursor.fetchall()
-            print(f"  ✅ Regular Views: {len(views)}")
+            print(f"  [SUCCESS] Regular Views: {len(views)}")
             for view in views:
                 cursor.execute(f"SELECT COUNT(*) FROM analytics.{view[0]}")
                 count = cursor.fetchone()[0]
@@ -315,13 +315,13 @@ class DataValidator:
                 ORDER BY matviewname
             """)
             mat_views = cursor.fetchall()
-            print(f"\n  ✅ Materialized Views: {len(mat_views)}")
+            print(f"\n  [SUCCESS] Materialized Views: {len(mat_views)}")
             for mv in mat_views:
                 cursor.execute(f"SELECT COUNT(*) FROM analytics.{mv[0]}")
                 count = cursor.fetchone()[0]
                 print(f"     - {mv[0]}: {count:,} rows")
                 if count == 0:
-                    self.warnings.append(f"⚠️  Materialized view {mv[0]} is empty")
+                    self.warnings.append(f"[WARNING]  Materialized view {mv[0]} is empty")
             
             # Check refresh function
             cursor.execute("""
@@ -332,12 +332,12 @@ class DataValidator:
             """)
             function = cursor.fetchone()
             if function:
-                print(f"\n  ✅ Refresh Function: {function[0]}")
+                print(f"\n  [SUCCESS] Refresh Function: {function[0]}")
             else:
-                self.warnings.append("⚠️  Refresh function not found")
+                self.warnings.append("[WARNING]  Refresh function not found")
         
         except Exception as e:
-            msg = f"  ❌ Views validation failed: {e}"
+            msg = f"  [ERROR] Views validation failed: {e}"
             print(msg)
             self.errors.append(msg)
         finally:
@@ -345,11 +345,11 @@ class DataValidator:
 
     def validate_parquet_files(self):
         """Validate Parquet files exist and are readable"""
-        print("\n📁 8. PARQUET FILE VALIDATION")
+        print("\n[FOLDER] 8. PARQUET FILE VALIDATION")
         print("=" * 60)
         
         if not self.spark:
-            print("  ⚠️  Spark not initialized, skipping Parquet validation")
+            print("  [WARNING]  Spark not initialized, skipping Parquet validation")
             return
         
         try:
@@ -366,20 +366,20 @@ class DataValidator:
                 try:
                     df = self.spark.read.parquet(f"{GOLD_PATH}/{table}")
                     count = df.count()
-                    print(f"  ✅ {table}: {count:,} records")
+                    print(f"  [SUCCESS] {table}: {count:,} records")
                 except Exception as e:
-                    msg = f"  ❌ {table}: Error reading - {str(e)}"
+                    msg = f"  [ERROR] {table}: Error reading - {str(e)}"
                     print(msg)
                     self.errors.append(msg)
         except Exception as e:
-            msg = f"  ❌ Parquet validation failed: {e}"
+            msg = f"  [ERROR] Parquet validation failed: {e}"
             print(msg)
             self.errors.append(msg)
     
     def print_summary(self):
         """Print validation summary"""
         print("\n" + "=" * 60)
-        print("📊 VALIDATION SUMMARY")
+        print("[DATA] VALIDATION SUMMARY")
         print("=" * 60)
         
         total_checks = 8
@@ -388,23 +388,23 @@ class DataValidator:
         print(f"Warnings: {len(self.warnings)}")
         
         if len(self.errors) > 0:
-            print("\n❌ ERRORS FOUND:")
+            print("\n[ERROR] ERRORS FOUND:")
             for i, error in enumerate(self.errors, 1):
                 print(f"  {i}. {error}")
         
         if len(self.warnings) > 0:
-            print("\n⚠️  WARNINGS:")
+            print("\n[WARNING]  WARNINGS:")
             for i, warning in enumerate(self.warnings, 1):
                 print(f"  {i}. {warning}")
         
         if len(self.errors) == 0 and len(self.warnings) == 0:
-            print("\n✅ ALL CHECKS PASSED!")
+            print("\n[SUCCESS] ALL CHECKS PASSED!")
             print("   Data quality is excellent.")
         elif len(self.errors) == 0:
-            print("\n✅ ALL CRITICAL CHECKS PASSED")
+            print("\n[SUCCESS] ALL CRITICAL CHECKS PASSED")
             print("   Some warnings present but not critical.")
         else:
-            print("\n❌ VALIDATION FAILED")
+            print("\n[ERROR] VALIDATION FAILED")
             print("   Please review and fix errors.")
         
         print(f"\nValidation completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -419,19 +419,19 @@ class DataValidator:
     
     def run_all_validations(self):
         """Run all validation checks"""
-        print("⚽ FOOTBALL DATA ANALYTICS - DATA VALIDATION")
+        print("[FOOTBALL] FOOTBALL DATA ANALYTICS - DATA VALIDATION")
         print("=" * 60)
         print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         
         # Initialize connections
         if not self.init_postgres():
-            print("❌ Cannot proceed without PostgreSQL connection")
+            print("[ERROR] Cannot proceed without PostgreSQL connection")
             return False
         
         try:
             self.init_spark()
         except Exception as e:
-            print(f"⚠️  Spark initialization failed: {e}")
+            print(f"[WARNING]  Spark initialization failed: {e}")
             print("   Continuing with PostgreSQL validation only...")
         
         # Run validations
@@ -452,7 +452,7 @@ class DataValidator:
             return len(self.errors) == 0
         
         except Exception as e:
-            print(f"\n❌ Validation failed with error: {e}")
+            print(f"\n[ERROR] Validation failed with error: {e}")
             import traceback
             traceback.print_exc()
             return False

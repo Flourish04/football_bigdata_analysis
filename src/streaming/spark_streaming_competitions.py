@@ -56,10 +56,10 @@ CHECKPOINT_DIR = "/tmp/spark-checkpoints/football-competitions-leaderboards"
 
 def create_spark_session():
     """Create Spark session with Kafka and Postgres support"""
-    print("🔧 Creating Spark session...")
+    print("[SETUP] Creating Spark session...")
     
     if not POSTGRESQL_JAR.exists():
-        print(f"⚠️  PostgreSQL JDBC jar not found at {POSTGRESQL_JAR}")
+        print(f"[WARNING]  PostgreSQL JDBC jar not found at {POSTGRESQL_JAR}")
         print("   Download from: https://jdbc.postgresql.org/download/")
         sys.exit(1)
     
@@ -305,16 +305,16 @@ def normalize_leaderboards_to_silver(bronze_df):
 def write_competitions_to_postgres(batch_df, batch_id):
     """Process competitions microbatch: Bronze → Silver → Postgres"""
     if batch_df.isEmpty():
-        print(f"⏭️  Batch {batch_id} (Competitions): No data", flush=True)
+        print(f"[SKIP]  Batch {batch_id} (Competitions): No data", flush=True)
         return
     
     print(f"\n{'='*60}", flush=True)
-    print(f"📦 Batch {batch_id} (Competitions): Processing {batch_df.count()} records...", flush=True)
+    print(f"[BATCH] Batch {batch_id} (Competitions): Processing {batch_df.count()} records...", flush=True)
     
     # BRONZE → SILVER
     silver_df = normalize_competitions_to_silver(batch_df)
     silver_count = silver_df.count()
-    print(f"🥈 Batch {batch_id} (Competitions): Silver transformation complete - {silver_count} records", flush=True)
+    print(f"[SILVER] Batch {batch_id} (Competitions): Silver transformation complete - {silver_count} records", flush=True)
     
     # Deduplicate
     window_spec = Window.partitionBy("competition_id").orderBy(col("last_updated").desc())
@@ -322,7 +322,7 @@ def write_competitions_to_postgres(batch_df, batch_id):
                          .filter(col("row_num") == 1) \
                          .drop("row_num")
     dedup_count = silver_df.count()
-    print(f"🔍 Batch {batch_id} (Competitions): After deduplication - {dedup_count} unique records", flush=True)
+    print(f"[CHECK] Batch {batch_id} (Competitions): After deduplication - {dedup_count} unique records", flush=True)
     
     # Postgres connection
     jdbc_url = f"jdbc:postgresql://{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/{os.environ.get('POSTGRES_DB', 'football_analytics')}"
@@ -334,7 +334,7 @@ def write_competitions_to_postgres(batch_df, batch_id):
     
     # Write to staging
     staging_table = "streaming.competitions_staging"
-    print(f"💾 Batch {batch_id} (Competitions): Writing {dedup_count} records to staging table...", flush=True)
+    print(f"[SAVE] Batch {batch_id} (Competitions): Writing {dedup_count} records to staging table...", flush=True)
     silver_df.write \
         .format("jdbc") \
         .option("url", jdbc_url) \
@@ -344,7 +344,7 @@ def write_competitions_to_postgres(batch_df, batch_id):
         .option("driver", connection_properties["driver"]) \
         .mode("append") \
         .save()
-    print(f"✅ Batch {batch_id} (Competitions): Staging write complete", flush=True)
+    print(f"[SUCCESS] Batch {batch_id} (Competitions): Staging write complete", flush=True)
     
     # Execute upsert
     import psycopg2
@@ -393,7 +393,7 @@ def write_competitions_to_postgres(batch_df, batch_id):
             processed_at = EXCLUDED.processed_at;
         """
         
-        print(f"🔄 Batch {batch_id} (Competitions): Executing upsert to main table...", flush=True)
+        print(f"[PROCESS] Batch {batch_id} (Competitions): Executing upsert to main table...", flush=True)
         cursor.execute(upsert_sql)
         upserted_count = cursor.rowcount
         conn.commit()
@@ -405,12 +405,12 @@ def write_competitions_to_postgres(batch_df, batch_id):
         cursor.close()
         conn.close()
         
-        print(f"✅ Batch {batch_id} (Competitions): Successfully upserted {upserted_count} records to main table", flush=True)
-        print(f"🎯 Batch {batch_id} COMPLETE: Bronze({batch_df.count()}) → Silver({silver_count}) → Dedup({dedup_count}) → Postgres({upserted_count})", flush=True)
+        print(f"[SUCCESS] Batch {batch_id} (Competitions): Successfully upserted {upserted_count} records to main table", flush=True)
+        print(f"[COMPLETE] Batch {batch_id} COMPLETE: Bronze({batch_df.count()}) → Silver({silver_count}) → Dedup({dedup_count}) → Postgres({upserted_count})", flush=True)
         print(f"{'='*60}\n", flush=True)
         
     except Exception as e:
-        print(f"❌ Batch {batch_id} (Competitions): Error during upsert: {e}", flush=True)
+        print(f"[ERROR] Batch {batch_id} (Competitions): Error during upsert: {e}", flush=True)
         import traceback
         traceback.print_exc()
         import traceback
@@ -420,16 +420,16 @@ def write_competitions_to_postgres(batch_df, batch_id):
 def write_leaderboards_to_postgres(batch_df, batch_id):
     """Process leaderboards microbatch: Bronze → Silver → Postgres"""
     if batch_df.isEmpty():
-        print(f"⏭️  Batch {batch_id} (Leaderboards): No data", flush=True)
+        print(f"[SKIP]  Batch {batch_id} (Leaderboards): No data", flush=True)
         return
     
     print(f"\n{'='*60}", flush=True)
-    print(f"📦 Batch {batch_id} (Leaderboards): Processing {batch_df.count()} records...", flush=True)
+    print(f"[BATCH] Batch {batch_id} (Leaderboards): Processing {batch_df.count()} records...", flush=True)
     
     # BRONZE → SILVER
     silver_df = normalize_leaderboards_to_silver(batch_df)
     silver_count = silver_df.count()
-    print(f"🥈 Batch {batch_id} (Leaderboards): Silver transformation complete - {silver_count} records", flush=True)
+    print(f"[SILVER] Batch {batch_id} (Leaderboards): Silver transformation complete - {silver_count} records", flush=True)
     
     # Deduplicate
     window_spec = Window.partitionBy("competition_id", "season_id", "team_id", "stage", "standing_type", "group_name").orderBy(col("processed_at").desc())
@@ -437,7 +437,7 @@ def write_leaderboards_to_postgres(batch_df, batch_id):
                          .filter(col("row_num") == 1) \
                          .drop("row_num")
     dedup_count = silver_df.count()
-    print(f"🔍 Batch {batch_id} (Leaderboards): After deduplication - {dedup_count} unique records", flush=True)
+    print(f"[CHECK] Batch {batch_id} (Leaderboards): After deduplication - {dedup_count} unique records", flush=True)
     
     # Postgres connection
     jdbc_url = f"jdbc:postgresql://{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/{os.environ.get('POSTGRES_DB', 'football_analytics')}"
@@ -449,7 +449,7 @@ def write_leaderboards_to_postgres(batch_df, batch_id):
     
     # Write to staging
     staging_table = "streaming.leaderboards_staging"
-    print(f"💾 Batch {batch_id} (Leaderboards): Writing {dedup_count} records to staging table...", flush=True)
+    print(f"[SAVE] Batch {batch_id} (Leaderboards): Writing {dedup_count} records to staging table...", flush=True)
     silver_df.write \
         .format("jdbc") \
         .option("url", jdbc_url) \
@@ -459,7 +459,7 @@ def write_leaderboards_to_postgres(batch_df, batch_id):
         .option("driver", connection_properties["driver"]) \
         .mode("append") \
         .save()
-    print(f"✅ Batch {batch_id} (Leaderboards): Staging write complete", flush=True)
+    print(f"[SUCCESS] Batch {batch_id} (Leaderboards): Staging write complete", flush=True)
     
     # Execute upsert
     import psycopg2
@@ -517,7 +517,7 @@ def write_leaderboards_to_postgres(batch_df, batch_id):
             processed_at = EXCLUDED.processed_at;
         """
         
-        print(f"🔄 Batch {batch_id} (Leaderboards): Executing upsert to main table...", flush=True)
+        print(f"[PROCESS] Batch {batch_id} (Leaderboards): Executing upsert to main table...", flush=True)
         cursor.execute(upsert_sql)
         upserted_count = cursor.rowcount
         conn.commit()
@@ -529,12 +529,12 @@ def write_leaderboards_to_postgres(batch_df, batch_id):
         cursor.close()
         conn.close()
         
-        print(f"✅ Batch {batch_id} (Leaderboards): Successfully upserted {upserted_count} records to main table", flush=True)
-        print(f"🎯 Batch {batch_id} COMPLETE: Bronze({batch_df.count()}) → Silver({silver_count}) → Dedup({dedup_count}) → Postgres({upserted_count})", flush=True)
+        print(f"[SUCCESS] Batch {batch_id} (Leaderboards): Successfully upserted {upserted_count} records to main table", flush=True)
+        print(f"[COMPLETE] Batch {batch_id} COMPLETE: Bronze({batch_df.count()}) → Silver({silver_count}) → Dedup({dedup_count}) → Postgres({upserted_count})", flush=True)
         print(f"{'='*60}\n", flush=True)
         
     except Exception as e:
-        print(f"❌ Batch {batch_id} (Leaderboards): Error during upsert: {e}", flush=True)
+        print(f"[ERROR] Batch {batch_id} (Leaderboards): Error during upsert: {e}", flush=True)
         import traceback
         traceback.print_exc()
         import traceback
@@ -544,7 +544,7 @@ def write_leaderboards_to_postgres(batch_df, batch_id):
 def main():
     """Main streaming pipeline execution"""
     print("="*80, flush=True)
-    print("🚀 Competitions & Leaderboards Streaming Pipeline", flush=True)
+    print("[START] Competitions & Leaderboards Streaming Pipeline", flush=True)
     print("   Kafka → Bronze → Silver → PostgreSQL", flush=True)
     print("="*80, flush=True)
     print(flush=True)
@@ -563,7 +563,7 @@ def main():
         'postgres_password': os.environ.get('POSTGRES_PASSWORD', 'your_password')
     }
     
-    print(f"📊 Configuration:", flush=True)
+    print(f"[CONFIG] Configuration:", flush=True)
     print(f"   Kafka Bootstrap: {config['kafka_bootstrap']}", flush=True)
     print(f"   Competitions Topic: {config['kafka_topic_competitions']}", flush=True)
     print(f"   Leaderboards Topic: {config['kafka_topic_leaderboards']}", flush=True)
@@ -576,11 +576,11 @@ def main():
         # Create Spark session
         spark = create_spark_session()
         spark.sparkContext.setLogLevel("WARN")
-        print("✅ Spark session created", flush=True)
+        print("[SUCCESS] Spark session created", flush=True)
         print(flush=True)
         
         # === COMPETITIONS STREAM ===
-        print("🔗 Connecting to Kafka (Competitions)...", flush=True)
+        print("[CONNECT] Connecting to Kafka (Competitions)...", flush=True)
         competitions_df = spark.readStream \
             .format("kafka") \
             .option("kafka.bootstrap.servers", config['kafka_bootstrap']) \
@@ -600,10 +600,10 @@ def main():
                 col("raw_json")
             )
         
-        print("✅ Connected to Competitions stream", flush=True)
+        print("[SUCCESS] Connected to Competitions stream", flush=True)
         
         # === LEADERBOARDS STREAM ===
-        print("🔗 Connecting to Kafka (Leaderboards)...")
+        print("[CONNECT] Connecting to Kafka (Leaderboards)...")
         leaderboards_df = spark.readStream \
             .format("kafka") \
             .option("kafka.bootstrap.servers", config['kafka_bootstrap']) \
@@ -623,11 +623,11 @@ def main():
                 col("raw_json")
             )
         
-        print("✅ Connected to Leaderboards stream", flush=True)
+        print("[SUCCESS] Connected to Leaderboards stream", flush=True)
         print(flush=True)
         
         # Start streaming queries
-        print("📊 Starting streaming queries...", flush=True)
+        print("[CONFIG] Starting streaming queries...", flush=True)
         print("   Trigger: 60 seconds microbatch (aligned with NiFi 60s interval)", flush=True)
         print("   Press Ctrl+C to stop", flush=True)
         print(flush=True)
@@ -647,7 +647,7 @@ def main():
             .outputMode("append") \
             .start()
         
-        print("✅ Streaming queries started!", flush=True)
+        print("[SUCCESS] Streaming queries started!", flush=True)
         print(flush=True)
         print()
         
@@ -658,23 +658,23 @@ def main():
             import contextlib
             import io
             with contextlib.redirect_stderr(io.StringIO()):
-                print("\n\n⚠️  Received Ctrl+C, stopping streaming...")
+                print("\n\n[WARNING]  Received Ctrl+C, stopping streaming...")
                 try:
                     query_competitions.stop()
                     query_leaderboards.stop()
                 except Exception:
                     pass
-            print("✅ Streaming queries stopped")
+            print("[SUCCESS] Streaming queries stopped")
         
     except KeyboardInterrupt:
-        print("\n\n⚠️  Received Ctrl+C during initialization")
+        print("\n\n[WARNING]  Received Ctrl+C during initialization")
         
     except Exception as e:
         error_type = type(e).__name__
         if "Py4J" in error_type or "Network" in error_type:
-            print("\n⚠️  Stream interrupted by user")
+            print("\n[WARNING]  Stream interrupted by user")
         else:
-            print(f"\n❌ Error occurred: {e}")
+            print(f"\n[ERROR] Error occurred: {e}")
             import traceback
             traceback.print_exc()
             sys.exit(1)
@@ -688,8 +688,8 @@ def main():
                     spark.stop()
                 except Exception:
                     pass
-            print("🛑 Spark session stopped")
-        print("\n👋 Pipeline stopped. Goodbye!\n")
+            print("[STOP] Spark session stopped")
+        print("\n[BYE] Pipeline stopped. Goodbye!\n")
 
 
 if __name__ == '__main__':
@@ -716,5 +716,5 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         suppressor.suppress = True
-        print("\n👋 Stopped by user. Goodbye!\n")
+        print("\n[BYE] Stopped by user. Goodbye!\n")
         sys.exit(0)

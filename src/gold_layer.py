@@ -46,7 +46,7 @@ class GoldLayer:
         self.silver_path = SILVER_PATH
         self.gold_path = GOLD_PATH
         self.postgres_url = f"jdbc:postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-        logger.info(f"✅ Gold Layer initialized")
+        logger.info(f"[SUCCESS] Gold Layer initialized")
         logger.info(f"   Input: {self.silver_path}")
         logger.info(f"   Output: {self.gold_path}")
     
@@ -63,12 +63,12 @@ class GoldLayer:
             .getOrCreate()
         
         spark.sparkContext.setLogLevel("WARN")
-        logger.info("✅ Spark session created for Gold layer")
+        logger.info("[SUCCESS] Spark session created for Gold layer")
         return spark
     
     def calculate_player_form_metrics(self):
         """Calculate player form and performance metrics"""
-        logger.info("📊 Calculating: player_form_metrics")
+        logger.info("[DATA] Calculating: player_form_metrics")
         
         performances = self.spark.read.parquet(f"{self.silver_path}/player_performances")
         
@@ -104,7 +104,7 @@ class GoldLayer:
             .withColumn('gold_processed_timestamp', current_timestamp())
         
         record_count = form_metrics.count()
-        logger.info(f"✅ Gold: player_form_metrics → {record_count:,} records")
+        logger.info(f"[SUCCESS] Gold: player_form_metrics → {record_count:,} records")
         
         # Write to Gold layer
         output_path = f"{self.gold_path}/player_form_metrics"
@@ -114,7 +114,7 @@ class GoldLayer:
     
     def calculate_market_value_trends(self):
         """Calculate market value trends and changes"""
-        logger.info("📊 Calculating: market_value_trends")
+        logger.info("[DATA] Calculating: market_value_trends")
         
         market_values = self.spark.read.parquet(f"{self.silver_path}/player_market_value")
         
@@ -163,7 +163,7 @@ class GoldLayer:
             .withColumn('gold_processed_timestamp', current_timestamp())
         
         record_count = player_market_summary.count()
-        logger.info(f"✅ Gold: market_value_trends → {record_count:,} records")
+        logger.info(f"[SUCCESS] Gold: market_value_trends → {record_count:,} records")
         
         output_path = f"{self.gold_path}/market_value_trends"
         player_market_summary.write.mode("overwrite").parquet(output_path)
@@ -172,7 +172,7 @@ class GoldLayer:
     
     def calculate_injury_risk_scores(self):
         """Calculate injury risk and history metrics"""
-        logger.info("📊 Calculating: injury_risk_scores")
+        logger.info("[DATA] Calculating: injury_risk_scores")
         
         injuries = self.spark.read.parquet(f"{self.silver_path}/player_injuries")
         
@@ -198,7 +198,7 @@ class GoldLayer:
             .withColumn('gold_processed_timestamp', current_timestamp())
         
         record_count = risk_scores.count()
-        logger.info(f"✅ Gold: injury_risk_scores → {record_count:,} records")
+        logger.info(f"[SUCCESS] Gold: injury_risk_scores → {record_count:,} records")
         
         output_path = f"{self.gold_path}/injury_risk_scores"
         risk_scores.write.mode("overwrite").parquet(output_path)
@@ -207,7 +207,7 @@ class GoldLayer:
     
     def calculate_transfer_intelligence(self):
         """Calculate transfer market intelligence"""
-        logger.info("📊 Calculating: transfer_intelligence")
+        logger.info("[DATA] Calculating: transfer_intelligence")
         
         transfers = self.spark.read.parquet(f"{self.silver_path}/transfer_history")
         
@@ -237,7 +237,7 @@ class GoldLayer:
             .withColumn('gold_processed_timestamp', current_timestamp())
         
         record_count = transfer_stats.count()
-        logger.info(f"✅ Gold: transfer_intelligence → {record_count:,} records")
+        logger.info(f"[SUCCESS] Gold: transfer_intelligence → {record_count:,} records")
         
         output_path = f"{self.gold_path}/transfer_intelligence"
         transfer_stats.write.mode("overwrite").parquet(output_path)
@@ -246,7 +246,7 @@ class GoldLayer:
     
     def create_player_analytics_360(self):
         """Create comprehensive 360-degree player analytics"""
-        logger.info("📊 Creating: player_analytics_360")
+        logger.info("[DATA] Creating: player_analytics_360")
         
         # Load all necessary data
         profiles = self.spark.read.parquet(f"{self.silver_path}/player_profiles")
@@ -349,7 +349,7 @@ class GoldLayer:
         .withColumn('gold_processed_timestamp', current_timestamp())
         
         record_count = final_analytics.count()
-        logger.info(f"✅ Gold: player_analytics_360 → {record_count:,} records")
+        logger.info(f"[SUCCESS] Gold: player_analytics_360 → {record_count:,} records")
         
         output_path = f"{self.gold_path}/player_analytics_360"
         final_analytics.write.mode("overwrite").parquet(output_path)
@@ -358,7 +358,7 @@ class GoldLayer:
     
     def write_to_postgres(self, df, table_name: str):
         """Write Gold layer data to PostgreSQL for consumption"""
-        logger.info(f"💾 Writing to PostgreSQL: {table_name}")
+        logger.info(f"[SAVE] Writing to PostgreSQL: {table_name}")
         
         try:
             df.write \
@@ -371,14 +371,14 @@ class GoldLayer:
                 .mode("overwrite") \
                 .save()
             
-            logger.info(f"✅ PostgreSQL: {table_name} written successfully")
+            logger.info(f"[SUCCESS] PostgreSQL: {table_name} written successfully")
         except Exception as e:
-            logger.error(f"❌ Error writing to PostgreSQL: {str(e)}")
+            logger.error(f"[ERROR] Error writing to PostgreSQL: {str(e)}")
     
     def process_all_analytics(self, write_to_db: bool = False):
         """Process all Gold layer analytics"""
         logger.info("=" * 80)
-        logger.info("🥇 GOLD LAYER - Starting analytics processing")
+        logger.info("[GOLD] GOLD LAYER - Starting analytics processing")
         logger.info("=" * 80)
         
         start_time = datetime.now()
@@ -396,7 +396,7 @@ class GoldLayer:
             
             # Step 3: Write to PostgreSQL (optional)
             if write_to_db:
-                logger.info("\n💾 Writing to PostgreSQL...")
+                logger.info("\n[SAVE] Writing to PostgreSQL...")
                 self.write_to_postgres(form_metrics, 'player_form_metrics')
                 self.write_to_postgres(market_trends, 'market_value_trends')
                 self.write_to_postgres(injury_risks, 'injury_risk_scores')
@@ -404,7 +404,7 @@ class GoldLayer:
                 self.write_to_postgres(analytics_360, 'player_analytics_360')
             
             # Show top 10 players
-            logger.info("\n🏆 TOP 10 PLAYERS BY OVERALL SCORE:")
+            logger.info("\n[TROPHY] TOP 10 PLAYERS BY OVERALL SCORE:")
             analytics_360.select(
                 'player_rank',
                 'player_name',
@@ -416,7 +416,7 @@ class GoldLayer:
             ).show(10, truncate=False)
             
         except Exception as e:
-            logger.error(f"❌ Error processing analytics: {str(e)}")
+            logger.error(f"[ERROR] Error processing analytics: {str(e)}")
             raise
         
         # Summary
@@ -424,26 +424,26 @@ class GoldLayer:
         duration = (end_time - start_time).total_seconds()
         
         logger.info("=" * 80)
-        logger.info("🥇 GOLD LAYER - Processing Summary")
+        logger.info("[GOLD] GOLD LAYER - Processing Summary")
         logger.info("=" * 80)
-        logger.info(f"✅ All analytics processed successfully")
-        logger.info(f"⏱️  Duration: {duration:.2f} seconds")
-        logger.info(f"📁 Output location: {self.gold_path}")
+        logger.info(f"[SUCCESS] All analytics processed successfully")
+        logger.info(f"[TIME]  Duration: {duration:.2f} seconds")
+        logger.info(f"[FOLDER] Output location: {self.gold_path}")
         if write_to_db:
-            logger.info(f"💾 PostgreSQL: Data written to analytics schema")
+            logger.info(f"[SAVE] PostgreSQL: Data written to analytics schema")
         logger.info("=" * 80)
     
     def stop(self):
         """Stop Spark session"""
         if self.spark:
             self.spark.stop()
-            logger.info("🛑 Gold Layer - Spark session stopped")
+            logger.info("[STOP] Gold Layer - Spark session stopped")
 
 
 def main():
     """Main entry point for Gold layer"""
     logger.info("\n" + "=" * 80)
-    logger.info("⚽ FOOTBALL ANALYTICS - GOLD LAYER")
+    logger.info("[FOOTBALL] FOOTBALL ANALYTICS - GOLD LAYER")
     logger.info("=" * 80)
     
     gold = GoldLayer()
@@ -453,11 +453,11 @@ def main():
         # Set write_to_db=True to write to PostgreSQL
         gold.process_all_analytics(write_to_db=False)
         
-        logger.info("\n✅ Gold layer processing completed successfully!")
-        logger.info("💡 To write to PostgreSQL, set write_to_db=True")
+        logger.info("\n[SUCCESS] Gold layer processing completed successfully!")
+        logger.info("[INFO] To write to PostgreSQL, set write_to_db=True")
         
     except Exception as e:
-        logger.error(f"\n❌ Gold layer processing failed: {str(e)}")
+        logger.error(f"\n[ERROR] Gold layer processing failed: {str(e)}")
         raise
     finally:
         gold.stop()
